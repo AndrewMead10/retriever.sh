@@ -14,8 +14,8 @@ from .database import get_db_session
 from .config import settings
 
 app = FastAPI(
-    title="Service Template",
-    description="A comprehensive service template with authentication",
+    title="Retriever.sh",
+    description="Cheap, easy to use hybrid search engine",
     version="1.0.0"
 )
 

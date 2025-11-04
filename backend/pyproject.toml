@@ -1,9 +1,9 @@
 [project]
-name = "service-template"
+name = "retriever"
 version = "0.1.0"
-description = "Service template with FastAPI and authentication"
+description = "RAG platform with FastAPI and authentication"
 authors = [
-    {name = "Service Template", email = "template@example.com"}
+    {name = "retriever.sh", email = "info@retriever.sh"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,6 +28,7 @@ dependencies = [
     "huggingface-hub",
     "llama-cpp-python",
     "polar-sdk",
+    "logfire",
 ]
 [tool.ruff]
 line-length = 88

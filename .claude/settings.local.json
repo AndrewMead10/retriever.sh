@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(docker-compose logs:*)",
+      "Bash(uv run:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose exec:*)"
     ],
     "deny": [],
     "ask": []

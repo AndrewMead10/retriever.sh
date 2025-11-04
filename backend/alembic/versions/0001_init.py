@@ -22,7 +22,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('email', sa.String(), nullable=False, unique=True),
         sa.Column('hashed_password', sa.String(), nullable=False),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('TRUE')),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
     )
@@ -51,8 +51,8 @@ def upgrade() -> None:
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False),
         sa.Column('token', sa.String(), unique=True),
         sa.Column('expires_at', sa.DateTime()),
-        sa.Column('used', sa.Boolean(), nullable=False, server_default=sa.text('0')),
-        sa.Column('active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+        sa.Column('used', sa.Boolean(), nullable=False, server_default=sa.text('FALSE')),
+        sa.Column('active', sa.Boolean(), nullable=False, server_default=sa.text('TRUE')),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
     )
     op.create_index('ix_password_reset_tokens_user_id', 'password_reset_tokens', ['user_id'])

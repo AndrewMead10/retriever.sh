@@ -1,4 +1,4 @@
-# Service Template
+# retriever.sh
 
 A comprehensive full-stack service template with FastAPI, React, and modern development practices. This template provides authentication and production-ready features out of the box. If you are seeing this in an actual project, be sure to remove it and replace it with a description of what you are working on.
 

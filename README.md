@@ -1,4 +1,4 @@
-# Vector Lab RAG Platform
+# retriever.sh
 
 Production-ready FastAPI + React implementation that turns the original `vector-lab-rag` prototype into a multi-tenant product with plans, usage limits, Polar billing, and project-scoped vector stores.
 

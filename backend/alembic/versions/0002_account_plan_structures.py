@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column("ingest_qps_limit", sa.Integer(), nullable=False),
         sa.Column("project_limit", sa.Integer(), nullable=False),
         sa.Column("vector_limit", sa.Integer(), nullable=False),
-        sa.Column("allow_topups", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("allow_topups", sa.Boolean(), nullable=False, server_default=sa.text("FALSE")),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=func.now()),
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=func.now()),
     )
@@ -53,7 +53,7 @@ def upgrade() -> None:
         sa.Column("stripe_customer_id", sa.String(), nullable=True),
         sa.Column("stripe_subscription_id", sa.String(), nullable=True),
         sa.Column("current_period_end", sa.DateTime(), nullable=True),
-        sa.Column("cancel_at_period_end", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("cancel_at_period_end", sa.Boolean(), nullable=False, server_default=sa.text("FALSE")),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=func.now()),
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=func.now()),
     )
@@ -130,7 +130,7 @@ def upgrade() -> None:
         sa.Column("prefix", sa.String(), nullable=False),
         sa.Column("hashed_key", sa.String(), nullable=False),
         sa.Column("last_used_at", sa.DateTime(), nullable=True),
-        sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("FALSE")),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=func.now()),
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=func.now()),
     )

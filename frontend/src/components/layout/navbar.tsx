@@ -28,7 +28,7 @@ export function Navbar() {
               to="/"
               className="text-xl font-semibold text-gray-900 hover:text-gray-700"
             >
-              VectorLab
+              retriever.sh
             </Link>
           </div>
 
