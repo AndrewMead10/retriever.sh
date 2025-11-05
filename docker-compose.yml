@@ -37,6 +37,8 @@ services:
       - ENABLE_PASSWORD_RESET=${ENABLE_PASSWORD_RESET:-true}
       - ENABLE_ADMIN_PANEL=${ENABLE_ADMIN_PANEL:-true}
       - ENABLE_BACKUPS=${ENABLE_BACKUPS:-true}
+      - LOGFIRE_ENABLED=${LOGFIRE_ENABLED:-false}
+      - LOGFIRE_IGNORE_NO_CONFIG=${LOGFIRE_IGNORE_NO_CONFIG:-1}
     depends_on:
       db:
         condition: service_healthy

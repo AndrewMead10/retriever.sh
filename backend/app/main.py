@@ -12,6 +12,7 @@ from .functions.backups import daily_backup_loop, cleanup_expired_tokens
 from .functions.plan_seeding import seed_plans
 from .database import get_db_session
 from .config import settings
+from .logging_config import setup_logfire
 
 app = FastAPI(
     title="Retriever.sh",
@@ -19,9 +20,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Setup LogFire first
+setup_logfire()
+
 setup_cors(app)
 
 app.add_exception_handler(Exception, global_exception_handler)
+
+# Instrument FastAPI with LogFire
+if settings.logfire_enabled:
+    import logfire
+    logfire.instrument_fastapi(app)
 
 # Mount all API routes under a common /api prefix to avoid
 # collisions with SPA client-side routes like /auth/* when

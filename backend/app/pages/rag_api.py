@@ -7,6 +7,10 @@ import anyio
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
+if settings.logfire_enabled:
+    import logfire
+
 from ..database import get_db
 from ..database.models import Account, AccountSubscription, Plan, Project
 from ..functions.accounts import decrement_vector_usage, ensure_vector_capacity, increment_usage
@@ -147,6 +151,15 @@ async def query_project(
     if payload is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Missing payload")
 
+    # Log query start if LogFire is enabled
+    if settings.logfire_enabled:
+        logfire.info("RAG query started", {
+            "project_id": project_id,
+            "query_length": len(payload.query) if payload and payload.query else 0,
+            "top_k": payload.top_k if payload else None,
+            "vector_k": payload.vector_k if payload else None,
+        })
+
     project = _load_project(db, project_id)
     _verify_project_key(project, x_project_key)
 
@@ -186,4 +199,13 @@ async def query_project(
     db.commit()
 
     results = [QueryResult.model_validate(row) for row in rows]
+
+    # Log query success if LogFire is enabled
+    if settings.logfire_enabled:
+        logfire.info("RAG query completed successfully", {
+            "project_id": project_id,
+            "result_count": len(results),
+            "account_id": account.id,
+        })
+
     return QueryResponse(results=results)

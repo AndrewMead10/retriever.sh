@@ -76,10 +76,11 @@ class Settings(BaseSettings):
     polar_portal_return_url: str = Field("http://localhost:3000/billing", env="POLAR_PORTAL_RETURN_URL")
 
     # LogFire Configuration
-    logfire_enabled: bool = Field(True, env="LOGFIRE_ENABLED")
+    logfire_enabled: bool = Field(False, env="LOGFIRE_ENABLED")
     logfire_token: str = Field("", env="LOGFIRE_TOKEN")
     logfire_environment: str = Field("development", env="LOGFIRE_ENVIRONMENT")
     logfire_service_name: str = Field("rag-app", env="LOGFIRE_SERVICE_NAME")
+    logfire_ignore_no_config: bool = Field(True, env="LOGFIRE_IGNORE_NO_CONFIG")
 
     # Always use .env in project root
     model_config = SettingsConfigDict(

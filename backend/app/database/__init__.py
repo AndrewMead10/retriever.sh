@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from .models import Base
 from ..config import settings
+from ..logging_config import instrument_sqlalchemy
 from pgvector.psycopg import register_vector
 
 engine = create_engine(
@@ -10,6 +11,10 @@ engine = create_engine(
     pool_pre_ping=True,
     future=True,
 )
+
+# Instrument SQLAlchemy with LogFire
+instrument_sqlalchemy(engine)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

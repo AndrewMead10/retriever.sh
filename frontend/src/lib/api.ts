@@ -39,8 +39,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
       // Retry the original request with the new access token
       return await fetch(url, options)
     } catch (refreshError) {
-      // If refresh fails, redirect to login
-      window.location.href = '/auth/login'
+      // If refresh fails, just throw the error - don't redirect automatically
       throw new Error('Authentication failed')
     }
   }
@@ -218,8 +217,13 @@ export const api = {
 }
 
 // Auth hooks
-export function useAuth() {
+type UseAuthOptions = {
+  fetchUser?: boolean
+}
+
+export function useAuth(options: UseAuthOptions = {}) {
   const queryClient = useQueryClient()
+  const { fetchUser = true } = options
 
   const login = useMutation({
     mutationFn: apiClient.login,
@@ -253,6 +257,7 @@ export function useAuth() {
     queryKey: ['user'],
     queryFn: apiClient.getCurrentUser,
     retry: false,
+    enabled: fetchUser,
   })
 
   return {
