@@ -72,13 +72,6 @@ export function Navbar() {
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="bg-card border border-foreground dither-border sharp-corners px-3 py-2">
-                  <div className="flex items-center space-x-2 text-sm font-mono-jetbrains">
-                    <User className="h-3 w-3" />
-                    <span className="truncate max-w-32">{user?.email}</span>
-                  </div>
-                </div>
-
                 <button
                   onClick={handleLogout}
                   disabled={logout.isPending}

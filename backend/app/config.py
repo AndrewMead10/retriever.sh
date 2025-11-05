@@ -82,10 +82,11 @@ class Settings(BaseSettings):
     logfire_service_name: str = Field("rag-app", env="LOGFIRE_SERVICE_NAME")
     logfire_ignore_no_config: bool = Field(True, env="LOGFIRE_IGNORE_NO_CONFIG")
 
-    # Always use .env in project root
+    # Try .env in project root for local development, but don't fail if not found (Docker uses env injection)
     model_config = SettingsConfigDict(
         env_file="../.env",
         env_file_encoding="utf-8",
+        env_file_ignore_missing=True,
     )
 
 
