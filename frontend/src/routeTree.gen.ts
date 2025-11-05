@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
-import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as ConnectIndexRouteImport } from './routes/connect/index'
 import { Route as AuthResetIndexRouteImport } from './routes/auth/reset/index'
 import { Route as AuthRegisterIndexRouteImport } from './routes/auth/register/index'
 import { Route as AuthLoginIndexRouteImport } from './routes/auth/login/index'
@@ -32,9 +32,9 @@ const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   path: '/projects/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/dashboard/',
-  path: '/dashboard/',
+const ConnectIndexRoute = ConnectIndexRouteImport.update({
+  id: '/connect/',
+  path: '/connect/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthResetIndexRoute = AuthResetIndexRouteImport.update({
@@ -56,7 +56,7 @@ const AuthLoginIndexRoute = AuthLoginIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/docs': typeof DocsRoute
-  '/dashboard': typeof DashboardIndexRoute
+  '/connect': typeof ConnectIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
   '/auth/register': typeof AuthRegisterIndexRoute
@@ -65,7 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/docs': typeof DocsRoute
-  '/dashboard': typeof DashboardIndexRoute
+  '/connect': typeof ConnectIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
   '/auth/register': typeof AuthRegisterIndexRoute
@@ -75,7 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/docs': typeof DocsRoute
-  '/dashboard/': typeof DashboardIndexRoute
+  '/connect/': typeof ConnectIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
   '/auth/register/': typeof AuthRegisterIndexRoute
@@ -86,7 +86,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/docs'
-    | '/dashboard'
+    | '/connect'
     | '/projects'
     | '/auth/login'
     | '/auth/register'
@@ -95,7 +95,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/docs'
-    | '/dashboard'
+    | '/connect'
     | '/projects'
     | '/auth/login'
     | '/auth/register'
@@ -104,7 +104,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/docs'
-    | '/dashboard/'
+    | '/connect/'
     | '/projects/'
     | '/auth/login/'
     | '/auth/register/'
@@ -114,7 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DocsRoute: typeof DocsRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
+  ConnectIndexRoute: typeof ConnectIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   AuthLoginIndexRoute: typeof AuthLoginIndexRoute
   AuthRegisterIndexRoute: typeof AuthRegisterIndexRoute
@@ -144,11 +144,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard/': {
-      id: '/dashboard/'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardIndexRouteImport
+    '/connect/': {
+      id: '/connect/'
+      path: '/connect'
+      fullPath: '/connect'
+      preLoaderRoute: typeof ConnectIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/reset/': {
@@ -178,7 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DocsRoute: DocsRoute,
-  DashboardIndexRoute: DashboardIndexRoute,
+  ConnectIndexRoute: ConnectIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   AuthLoginIndexRoute: AuthLoginIndexRoute,
   AuthRegisterIndexRoute: AuthRegisterIndexRoute,

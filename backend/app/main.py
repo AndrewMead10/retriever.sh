@@ -7,7 +7,7 @@ import asyncio
 from .middleware.cors import setup_cors
 from .middleware.errors import global_exception_handler
 from .pages.auth import login, register, logout, reset, google, utils
-from .pages import billing, dashboard, projects, rag_api
+from .pages import billing, projects, rag_api, connect
 from .functions.backups import daily_backup_loop, cleanup_expired_tokens
 from .functions.plan_seeding import seed_plans
 from .database import get_db_session
@@ -40,11 +40,11 @@ app.include_router(register.router, prefix="/api")
 app.include_router(utils.router, prefix="/api")
 app.include_router(logout.router, prefix="/api")
 app.include_router(reset.router, prefix="/api")
-app.include_router(dashboard.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(rag_api.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
 app.include_router(google.router, prefix="/api")
+app.include_router(connect.router, prefix="/api/connect")
 
 
 class SPAStaticFiles(StaticFiles):

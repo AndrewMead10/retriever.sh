@@ -39,6 +39,28 @@ export function Navbar() {
             </Link>
           </div>
 
+          <div className="flex items-center space-x-4">
+            <Link
+              to="/docs"
+              className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 transition-all duration-200 hover:scale-110"
+            >
+              [ DOCS ]
+            </Link>
+            <Link
+              to="/"
+              hash="pricing"
+              className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 transition-all duration-200 hover:scale-110"
+            >
+              [ PRICING ]
+            </Link>
+            <Link
+              to="/connect"
+              className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 transition-all duration-200 hover:scale-110"
+            >
+              [ CONNECT ]
+            </Link>
+          </div>
+
           {isAuthenticated ? (
             <div className="flex items-center space-x-6">
               <div className="hidden md:flex items-center space-x-4">
@@ -47,18 +69,6 @@ export function Navbar() {
                   className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 sharp-corners border border-transparent hover:border-foreground transition-all duration-200"
                 >
                   [ PROJECTS ]
-                </Link>
-                <Link
-                  to="/dashboard"
-                  className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 sharp-corners border border-transparent hover:border-foreground transition-all duration-200"
-                >
-                  [ DASHBOARD ]
-                </Link>
-                <Link
-                  to="/docs"
-                  className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 sharp-corners border border-transparent hover:border-foreground transition-all duration-200"
-                >
-                  [ DOCS ]
                 </Link>
               </div>
 
@@ -86,14 +96,6 @@ export function Navbar() {
             </div>
           ) : (
             <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-4">
-                <Link
-                  to="/docs"
-                  className="text-sm font-mono-jetbrains font-bold text-muted-foreground hover:text-foreground px-4 py-2 sharp-corners border border-transparent hover:border-foreground transition-all duration-200"
-                >
-                  [ DOCS ]
-                </Link>
-              </div>
               <Link
                 to="/auth/login"
                 search={{ redirect: undefined }}

@@ -12,21 +12,6 @@ from . import get_db_session
 from datetime import datetime
 
 
-def get_dashboard_metrics() -> dict:
-    """Cross-table query for dashboard metrics"""
-    with get_db_session() as db:
-        total_users = db.query(User).count()
-        active_users = db.query(User).filter(User.is_active == True).count()
-        pending_resets = db.query(PasswordResetToken).filter(
-            PasswordResetToken.used == False,
-            PasswordResetToken.expires_at > datetime.utcnow()
-        ).count()
-        
-        return {
-            "total_users": total_users,
-            "active_users": active_users,
-            "pending_resets": pending_resets
-        }
 
 
 def get_user_by_id(user_id: int) -> User | None:
