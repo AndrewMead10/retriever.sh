@@ -59,17 +59,6 @@ function ProjectsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; projectId: number; projectName: string } | null>(null)
   const [deleteTypedName, setDeleteTypedName] = useState('')
 
-  const topUp = useMutation({
-    mutationFn: async (quantity: number) => api.billing.topUp(quantity),
-    onSuccess: (url) => {
-      toast.success('Redirecting to Polar Checkout...')
-      window.location.href = url
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || 'Unable to purchase top-up')
-    },
-  })
-
   const portal = useMutation({
     mutationFn: api.billing.portal,
     onSuccess: (url) => {
@@ -98,17 +87,6 @@ function ProjectsPage() {
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create project')
     }
-  }
-
-  const handleTopUpClick = () => {
-    const value = window.prompt('How many million vectors would you like to purchase?', '1')
-    if (!value) return
-    const quantity = Number.parseInt(value, 10)
-    if (Number.isNaN(quantity) || quantity <= 0) {
-      toast.error('Enter a positive integer quantity')
-      return
-    }
-    topUp.mutate(quantity)
   }
 
   const handleDeleteProject = (projectId: number, projectName: string) => {
@@ -155,9 +133,10 @@ function ProjectsPage() {
     ? Math.min(100, Math.round((usage!.project_count / projectLimit) * 100))
     : 0
   const approxVectorsPerProject =
-    plan && plan.project_limit && plan.project_limit > 0 && vectorLimit
+    plan?.per_project_vector_limit ??
+    (plan && plan.project_limit && plan.project_limit > 0 && vectorLimit
       ? Math.floor(vectorLimit / plan.project_limit)
-      : null
+      : null)
 
   return (
     <div className="min-h-screen bg-background dither-bg font-mono-jetbrains">
@@ -256,13 +235,13 @@ function ProjectsPage() {
             <div className="space-y-2">
               <CardTitle className="text-xl font-bold dither-text">{plan.name.toUpperCase()} PLAN</CardTitle>
               <CardDescription className="font-mono-jetbrains text-sm">
-                {plan.slug === 'testing'
-                  ? 'Trial the platform on Testing and choose Building or Scale when ready.'
+                {plan.slug === 'tinkering'
+                  ? 'Start on Tinkering and move to Building or Scale whenever you need more.'
                   : 'Your active subscription'}
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              {plan.slug === 'testing' && (
+              {plan.slug === 'tinkering' && (
                 <Button
                   asChild
                   className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text px-4 py-2"
@@ -272,17 +251,7 @@ function ProjectsPage() {
                   </Link>
                 </Button>
               )}
-              {plan.allow_topups && (
-                <Button
-                  variant="outline"
-                  onClick={handleTopUpClick}
-                  disabled={topUp.isPending}
-                  className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
-                >
-                  {topUp.isPending ? 'PREPARING...' : '[ BUY VECTOR TOP-UP ]'}
-                </Button>
-              )}
-              {plan.slug !== 'testing' && (
+              {plan.slug !== 'tinkering' && (
                 <Button
                   variant="ghost"
                   onClick={() => portal.mutate()}

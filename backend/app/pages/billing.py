@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,12 +11,13 @@ from ..config import settings
 from ..database import get_db, get_db_session
 from ..database.models import Plan
 from ..functions.accounts import (
+    get_account,
     get_account_and_plan,
     get_account_by_id,
 )
 from ..functions.billing import (
     create_billing_portal,
-    create_topup_checkout_session,
+    create_checkout_session,
     handle_checkout_completed,
     update_subscription_state,
 )
@@ -30,24 +31,14 @@ class CheckoutResponse(BaseModel):
     url: str
 
 
-class TopUpRequest(BaseModel):
-    quantity_millions: int
-
-
-@router.post("/topup", response_model=CheckoutResponse)
-def purchase_topup(
-    payload: TopUpRequest,
+@router.post("/checkout", response_model=CheckoutResponse)
+def create_checkout(
+    plan_slug: str = Query(..., description="Plan slug for checkout"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    account, _ = get_account_and_plan(db, user_id=current_user.id)
-    url = create_topup_checkout_session(
-        db,
-        account=account,
-        user_email=current_user.email,
-        quantity_millions=payload.quantity_millions,
-    )
-    db.commit()
+    account = get_account(db, user_id=current_user.id)
+    url = create_checkout_session(account, plan_slug)
     return CheckoutResponse(url=url)
 
 

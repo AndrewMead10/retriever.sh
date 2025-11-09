@@ -9,8 +9,8 @@ from ..database.models import Plan
 
 DEFAULT_PLANS = [
     {
-        "slug": "testing",
-        "name": "Testing",
+        "slug": "tinkering",
+        "name": "Tinkering",
         "price_cents": 500,
         "query_qps_limit": 1,
         "ingest_qps_limit": 1,
@@ -27,7 +27,7 @@ DEFAULT_PLANS = [
         "ingest_qps_limit": 10,
         "project_limit": 20,
         "vector_limit": 2_000_000,
-        "allow_topups": True,
+        "allow_topups": False,
         "polar_product_id": None,
     },
     {
@@ -51,7 +51,8 @@ def seed_plans(session: Session) -> None:
     slug_map = {row.slug: row for row in existing_rows}
 
     legacy_slug_map = {
-        "free": "testing",
+        "free": "tinkering",
+        "testing": "tinkering",
         "pro": "building",
         "enterprise": "scale",
     }
@@ -73,6 +74,8 @@ def seed_plans(session: Session) -> None:
 
     for base_plan_data in DEFAULT_PLANS:
         plan_data = dict(base_plan_data)
+        if plan_data["slug"] == "tinkering" and settings.polar_product_tinkering:
+            plan_data["polar_product_id"] = settings.polar_product_tinkering
         if plan_data["slug"] == "building" and settings.polar_product_building:
             plan_data["polar_product_id"] = settings.polar_product_building
         if plan_data["slug"] == "scale" and settings.polar_product_scale:

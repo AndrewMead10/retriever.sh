@@ -123,10 +123,10 @@ function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Testing Plan */}
-            <div className="bg-background p-8">
+            {/* Tinkering Plan */}
+            <div className="bg-background p-8 border border-foreground dither-border sharp-corners">
               <div className="text-center">
-                <div className="text-lg font-bold mb-2">TESTING</div>
+                <div className="text-lg font-bold mb-2">TINKERING</div>
                 <div className="text-4xl font-black mb-4">$5<span className="text-lg font-normal">/mo</span></div>
                 <div className="text-sm text-muted-foreground mb-6">Perfect for proving out your stack</div>
 
@@ -153,7 +153,7 @@ function HomePage() {
                   to="/auth/register"
                   className="block w-full bg-background border-2 border-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
                 >
-                  [ START TESTING ]
+                  [ START TINKERING ]
                 </Link>
               </div>
             </div>
@@ -183,10 +183,6 @@ function HomePage() {
                   </li>
                   <li className="flex items-start space-x-2">
                     <span className="font-bold">▶</span>
-                    <span>Vector top-ups available</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="font-bold">▶</span>
                     <span>Priority support</span>
                   </li>
                 </ul>
@@ -201,7 +197,7 @@ function HomePage() {
             </div>
 
             {/* Scale Plan */}
-            <div className="bg-background p-8">
+            <div className="bg-background p-8 border border-foreground dither-border sharp-corners">
               <div className="text-center">
                 <div className="text-lg font-bold mb-2">SCALE</div>
                 <div className="text-4xl font-black mb-4">$50<span className="text-lg font-normal">/mo</span></div>
@@ -218,15 +214,15 @@ function HomePage() {
                   </li>
                   <li className="flex items-start space-x-2">
                     <span className="font-bold">▶</span>
-                    <span>Unlimited vectors per project</span>
+                    <span>250k vectors per project</span>
                   </li>
                   <li className="flex items-start space-x-2">
                     <span className="font-bold">▶</span>
-                    <span>Dedicated deployments</span>
+                    <span>Advanced access controls</span>
                   </li>
                   <li className="flex items-start space-x-2">
                     <span className="font-bold">▶</span>
-                    <span>SLA & white-glove onboarding</span>
+                    <span>SLA-backed support</span>
                   </li>
                 </ul>
 

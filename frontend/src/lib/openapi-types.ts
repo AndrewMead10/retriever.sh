@@ -260,23 +260,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/billing/topup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Purchase Topup */
-        post: operations["purchase_topup_api_billing_topup_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/billing/portal": {
         parameters: {
             query?: never;
@@ -527,8 +510,8 @@ export interface components {
             project_limit?: number | null;
             /** Vector Limit */
             vector_limit?: number | null;
-            /** Allow Topups */
-            allow_topups: boolean;
+            /** Per Project Vector Limit */
+            per_project_vector_limit?: number | null;
         };
         /** ProjectCreateRequest */
         ProjectCreateRequest: {
@@ -686,11 +669,6 @@ export interface components {
              * Format: email
              */
             email: string;
-        };
-        /** TopUpRequest */
-        TopUpRequest: {
-            /** Quantity Millions */
-            quantity_millions: number;
         };
         /** UsageInfo */
         UsageInfo: {
@@ -1154,39 +1132,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    purchase_topup_api_billing_topup_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TopUpRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CheckoutResponse"];
                 };
             };
             /** @description Validation Error */

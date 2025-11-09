@@ -200,7 +200,7 @@ function DocsPage() {
               <div className="space-y-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="font-bold">Testing Plan</span>
+                    <span className="font-bold">Tinkering Plan</span>
                     <span className="text-muted-foreground">10,000 queries/month</span>
                   </div>
                   <div className="flex justify-between">
@@ -208,7 +208,7 @@ function DocsPage() {
                     <span className="text-muted-foreground">100,000 queries/month</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-bold">Scaling Plan</span>
+                    <span className="font-bold">Scale Plan</span>
                     <span className="text-muted-foreground">1M+ queries/month</span>
                   </div>
                 </div>

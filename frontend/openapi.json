@@ -563,47 +563,6 @@
         }
       }
     },
-    "/api/billing/topup": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Purchase Topup",
-        "operationId": "purchase_topup_api_billing_topup_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TopUpRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CheckoutResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/billing/portal": {
       "post": {
         "tags": [
@@ -1115,9 +1074,16 @@
             ],
             "title": "Vector Limit"
           },
-          "allow_topups": {
-            "type": "boolean",
-            "title": "Allow Topups"
+          "per_project_vector_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Project Vector Limit"
           }
         },
         "type": "object",
@@ -1126,8 +1092,7 @@
           "name",
           "price_cents",
           "query_qps_limit",
-          "ingest_qps_limit",
-          "allow_topups"
+          "ingest_qps_limit"
         ],
         "title": "PlanInfo"
       },
@@ -1574,19 +1539,6 @@
           "email"
         ],
         "title": "ResetRequest"
-      },
-      "TopUpRequest": {
-        "properties": {
-          "quantity_millions": {
-            "type": "integer",
-            "title": "Quantity Millions"
-          }
-        },
-        "type": "object",
-        "required": [
-          "quantity_millions"
-        ],
-        "title": "TopUpRequest"
       },
       "UsageInfo": {
         "properties": {

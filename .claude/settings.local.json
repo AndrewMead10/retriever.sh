@@ -10,7 +10,9 @@
       "Bash(docker-compose up:*)",
       "Bash(docker-compose exec:*)",
       "Bash(docker compose build:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm run gen:types:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

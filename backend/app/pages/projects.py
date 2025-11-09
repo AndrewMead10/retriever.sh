@@ -14,6 +14,7 @@ from ..functions.accounts import (
     ensure_project_capacity,
     get_account,
     get_account_and_plan,
+    get_per_project_vector_limit,
     get_project_limit,
     get_usage,
     get_vector_limit,
@@ -40,7 +41,7 @@ class PlanInfo(BaseModel):
     ingest_qps_limit: int
     project_limit: Optional[int] = None
     vector_limit: Optional[int] = None
-    allow_topups: bool
+    per_project_vector_limit: Optional[int] = None
 
 
 class UsageInfo(BaseModel):
@@ -157,7 +158,7 @@ def projects_onload(
             ingest_qps_limit=plan.ingest_qps_limit,
             project_limit=project_limit,
             vector_limit=vector_limit,
-            allow_topups=plan.allow_topups,
+            per_project_vector_limit=get_per_project_vector_limit(plan),
         ) if plan else None,
         needs_subscription=needs_subscription,
     )

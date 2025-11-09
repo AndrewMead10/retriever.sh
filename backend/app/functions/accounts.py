@@ -9,6 +9,14 @@ from sqlalchemy.orm import Session
 
 from ..database.models import Account, AccountSubscription, AccountUsage, Plan, Project, VectorTopUp
 
+PER_PROJECT_VECTOR_LIMITS: dict[str, int] = {
+    "scale": 250_000,
+}
+
+
+def get_per_project_vector_limit(plan: Plan) -> int | None:
+    return PER_PROJECT_VECTOR_LIMITS.get(plan.slug)
+
 
 def get_account(session: Session, *, user_id: int) -> Account:
     account = session.execute(
@@ -108,17 +116,24 @@ def ensure_vector_capacity(
     account: Account,
     plan: Plan,
     additional_vectors: int,
+    project: Project | None = None,
 ) -> None:
     limit = get_vector_limit(session, account=account, plan=plan)
-    if limit is None:
-        return
+    if limit is not None:
+        usage = get_usage(session, account=account)
+        if usage.total_vectors + additional_vectors > limit:
+            raise HTTPException(
+                status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Vector storage limit reached. Upgrade plan or purchase additional capacity.",
+            )
 
-    usage = get_usage(session, account=account)
-    if usage.total_vectors + additional_vectors > limit:
-        raise HTTPException(
-            status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Vector storage limit reached. Upgrade plan or purchase additional capacity.",
-        )
+    per_project_limit = get_per_project_vector_limit(plan)
+    if per_project_limit is not None and project is not None:
+        if project.vector_count + additional_vectors > per_project_limit:
+            raise HTTPException(
+                status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Project vector limit reached. Upgrade to a higher tier or archive vectors to continue.",
+            )
 
 
 def get_plan_by_slug(session: Session, slug: str) -> Plan | None:

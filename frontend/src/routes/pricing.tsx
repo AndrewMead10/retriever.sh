@@ -1,10 +1,22 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+import { useAuth, useCreateCheckout } from '@/lib/api'
 
 export const Route = createFileRoute('/pricing')({
   component: PricingPage,
 })
 
 function PricingPage() {
+  const { isAuthenticated } = useAuth()
+  const createCheckout = useCreateCheckout()
+
+  const handlePlanSelect = (planSlug: string) => {
+    if (isAuthenticated) {
+      createCheckout.mutate(planSlug)
+    } else {
+      // Redirect to register if not authenticated
+      window.location.href = '/auth/register'
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background dither-bg font-mono-jetbrains">
@@ -19,10 +31,10 @@ function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Testing Plan */}
-          <div className="bg-background p-8">
+          {/* Tinkering Plan */}
+          <div className="bg-background p-8 border border-foreground dither-border sharp-corners">
             <div className="text-center">
-              <div className="text-lg font-bold mb-2">TESTING</div>
+              <div className="text-lg font-bold mb-2">TINKERING</div>
               <div className="text-4xl font-black mb-4">$5<span className="text-lg font-normal">/mo</span></div>
               <div className="text-sm text-muted-foreground mb-6">Perfect for proving out your stack</div>
 
@@ -45,12 +57,13 @@ function PricingPage() {
                 </li>
               </ul>
 
-              <Link
-                to="/auth/register"
-                className="block w-full bg-background border-2 border-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+              <button
+                onClick={() => handlePlanSelect('tinkering')}
+                disabled={createCheckout.isPending}
+                className="block w-full bg-background border-2 border-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                [ START TESTING ]
-              </Link>
+                [ START TINKERING ]
+              </button>
             </div>
           </div>
 
@@ -79,25 +92,22 @@ function PricingPage() {
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="font-bold">▶</span>
-                  <span>Vector top-ups available</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="font-bold">▶</span>
                   <span>Priority support</span>
                 </li>
               </ul>
 
-              <Link
-                to="/auth/register"
-                className="block w-full bg-background text-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-muted transition-all duration-200"
+              <button
+                onClick={() => handlePlanSelect('building')}
+                disabled={createCheckout.isPending}
+                className="block w-full bg-background text-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-muted transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 [ START BUILDING ]
-              </Link>
+              </button>
             </div>
           </div>
 
           {/* Scale Plan */}
-          <div className="bg-background p-8">
+          <div className="bg-background p-8 border border-foreground dither-border sharp-corners">
             <div className="text-center">
               <div className="text-lg font-bold mb-2">SCALE</div>
               <div className="text-4xl font-black mb-4">$50<span className="text-lg font-normal">/mo</span></div>
@@ -114,24 +124,25 @@ function PricingPage() {
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="font-bold">▶</span>
-                  <span>Unlimited vectors per project</span>
+                  <span>250k vectors per project</span>
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="font-bold">▶</span>
-                  <span>Dedicated deployments</span>
+                  <span>Advanced access controls</span>
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="font-bold">▶</span>
-                  <span>SLA & white-glove onboarding</span>
+                  <span>SLA-backed support</span>
                 </li>
               </ul>
 
-              <Link
-                to="/auth/register"
-                className="block w-full bg-background border-2 border-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+              <button
+                onClick={() => handlePlanSelect('scale')}
+                disabled={createCheckout.isPending}
+                className="block w-full bg-background border-2 border-foreground text-center py-3 px-6 sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 [ START SCALE ]
-              </Link>
+              </button>
             </div>
           </div>
         </div>

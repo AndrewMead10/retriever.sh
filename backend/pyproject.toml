@@ -3,7 +3,7 @@ name = "retriever"
 version = "0.1.0"
 description = "RAG platform with FastAPI and authentication"
 authors = [
-    {name = "retriever.sh", email = "info@retriever.sh"}
+    {name = "retriever.sh", email = "support@retriever.sh"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"

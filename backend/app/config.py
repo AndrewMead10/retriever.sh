@@ -67,6 +67,13 @@ class Settings(BaseSettings):
     polar_access_token: str = Field("", env="POLAR_ACCESS_TOKEN")
     polar_environment: str = Field("production", env="POLAR_ENVIRONMENT")
     polar_webhook_secret: str = Field("", env="POLAR_WEBHOOK_SECRET")
+    polar_product_tinkering: str = Field(
+        "",
+        validation_alias=AliasChoices(
+            "POLAR_PRODUCT_TINKERING_ID",
+            "POLAR_PRODUCT_TINKERING",
+        ),
+    )
     polar_product_building: str = Field(
         "",
         validation_alias=AliasChoices("POLAR_PRODUCT_BUILDING_ID", "POLAR_PRODUCT_BUILDING"),
@@ -80,11 +87,6 @@ class Settings(BaseSettings):
             "POLAR_PRODUCT_ENTERPRISE",
         ),
     )
-    polar_product_topup: str = Field(
-        "",
-        validation_alias=AliasChoices("POLAR_PRODUCT_TOPUP_ID", "POLAR_PRODUCT_TOPUP"),
-    )
-    polar_topup_unit_cents: int = Field(0, env="POLAR_TOPUP_UNIT_CENTS")
     polar_success_url: str = Field("http://localhost:3000/billing/success", env="POLAR_SUCCESS_URL")
     polar_cancel_url: str = Field("http://localhost:3000/billing", env="POLAR_CANCEL_URL")
     polar_organization_slug: str = Field("", env="POLAR_ORGANIZATION_SLUG")

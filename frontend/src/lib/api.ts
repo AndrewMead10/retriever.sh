@@ -164,15 +164,11 @@ const apiClient = {
     }
   },
 
-  async requestTopUp(quantityMillions: number): Promise<string> {
-    const response = await fetchWithAuth('/api/billing/topup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quantity_millions: quantityMillions }),
-    })
+  async createCheckout(planSlug: string): Promise<string> {
+    const response = await fetchWithAuth(`/api/billing/checkout?plan_slug=${planSlug}`, { method: 'POST' })
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
-      throw new Error(error.detail || error.message || 'Failed to purchase top-up')
+      throw new Error(error.detail || error.message || 'Failed to create checkout session')
     }
     const data = await response.json()
     return data.url as string
@@ -199,7 +195,7 @@ export const api = {
     delete: apiClient.deleteProject,
   },
   billing: {
-    topUp: apiClient.requestTopUp,
+    checkout: apiClient.createCheckout,
     portal: apiClient.openBillingPortal,
   },
 }
@@ -296,6 +292,16 @@ export function useDeleteProject() {
     mutationFn: apiClient.deleteProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
+export function useCreateCheckout() {
+  return useMutation({
+    mutationFn: (planSlug: string) => apiClient.createCheckout(planSlug),
+    onSuccess: (url: string) => {
+      // Redirect to Polar checkout
+      window.location.href = url
     },
   })
 }

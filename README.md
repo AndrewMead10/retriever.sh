@@ -6,8 +6,8 @@ Production-ready FastAPI + React implementation that turns the original `vector-
 
 - 🔐 **Self-service accounts** – email/password auth with JWT refresh, automatic account provisioning, and single-user billing ready for future org support.
 - 🧱 **Project isolation** – each project provisions its own pgvector-backed namespace while reusing the hybrid retrieval logic from `vector-lab-rag`.
-- ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Testing, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
-- 💳 **Polar integration** – vector top-ups, self-service portal hand-off, and webhook handlers to activate plans/add capacity.
+- ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Tinkering, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
+- 💳 **Polar integration** – plan checkout, self-service portal hand-off, and webhook handlers to activate subscriptions and keep limits in sync.
 - 🌗 **Light/Dark UI** – React + TanStack Router frontend with Tailwind v4 theming, project dashboard, and one-click theme toggle.
 - 🧪 **Targeted tests** – unit coverage for rate limiting and usage counters to guard quota logic.
 
@@ -27,10 +27,9 @@ Key additions beyond the base template:
 | `RAG_MODEL_REPO` / `RAG_MODEL_FILENAME` | Hugging Face repo + GGUF file for embeddings (defaults to the nomic model from `vector-lab-rag`). |
 | `RAG_EMBED_DIM` | Embedding dimension expected by the model (default `768`). |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |
-| `POLAR_PRODUCT_BUILDING_ID` | Polar product ID for the Building plan subscription upgrade. |
+| `POLAR_PRODUCT_TINKERING_ID` | Polar product ID for the Tinkering plan subscription. |
+| `POLAR_PRODUCT_BUILDING_ID` | Polar product ID for the Building plan subscription. |
 | `POLAR_PRODUCT_SCALE_ID` | Polar product ID for the Scale plan subscription. |
-| `POLAR_PRODUCT_TOPUP_ID` | Polar product ID for one-off vector top-ups. |
-| `POLAR_TOPUP_UNIT_CENTS` | Amount (in cents) charged per million vectors purchased. |
 | `POLAR_SUCCESS_URL` / `POLAR_CANCEL_URL` | Post-checkout redirect destinations. |
 | `POLAR_WEBHOOK_SECRET` | Signing secret from the Polar dashboard used to validate webhooks. |
 | `POLAR_PORTAL_RETURN_URL` | Return destination after closing the Polar customer portal. |
@@ -45,7 +44,7 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 5656
 ```
 
-On startup the app seeds the canonical plans (Testing / Building / Scale) and ensures rate-limit buckets exist for each account.
+On startup the app seeds the canonical plans (Tinkering / Building / Scale) and ensures rate-limit buckets exist for each account.
 
 ### 3. Frontend
 
@@ -70,7 +69,7 @@ Configure a tunnel (ngrok, Cloudflare, etc.) and add the forwarded URL as a webh
 | `GET` | `/api/projects/onload` | Returns plan info, usage counters, and project summaries for the signed-in user. |
 | `POST` | `/api/projects/onsubmit` | Creates a project and returns the initial ingest API key (only shown once). |
 
-Each project record stores embedding settings, vector store path, and summary counts. The frontend surfaces these details along with upgrade/top-up CTAs.
+Each project record stores embedding settings, vector store path, and summary counts. The frontend surfaces these details along with upgrade CTAs.
 
 ### Retrieval API (project key required)
 
@@ -118,7 +117,6 @@ Removes the document from FTS, vector index, and decrements usage counters so cu
 
 | Method | Endpoint | Notes |
 | --- | --- | --- |
-| `POST` | `/api/billing/topup` | Expects `{"quantity_millions": 1}`; opens Checkout for one-off vector bundles. |
 | `POST` | `/api/billing/portal` | Generates a Polar customer portal session for self-service management. |
 | `POST` | `/api/billing/webhook` | Processes checkout completions and subscription lifecycle events (Polar forwards checkout metadata with `account_id`). |
 
@@ -130,15 +128,16 @@ Plan seeding defines the default caps:
 
 | Plan | Monthly Price | Query QPS | Ingest QPS | Projects | Vector cap (base) |
 | --- | --- | --- | --- | --- | --- |
-| Testing | $5 | 1 | 1 | 3 | 30,000 total (≈10k/project) |
-| Building | $20 | 10 | 10 | 20 | 2,000,000 total (≈100k/project) + top-ups |
-| Scale | $50 | 100 | 100 | Unlimited | Unlimited per project |
+| Tinkering | $5 | 1 | 1 | 3 | 30,000 total (≈10k/project) |
+| Building | $20 | 10 | 10 | 20 | 2,000,000 total (≈100k/project) |
+| Scale | $50 | 100 | 100 | Unlimited | 250,000 per project |
 
 - QPS is enforced with token buckets stored in PostgreSQL (`rate_limit_buckets`).
-- Vector/storage caps combine the base plan limit plus any purchased top-ups.
+- Scale tier enforces a 250k vector cap per project; spin up more projects when you need additional capacity.
+- Vector/storage caps are defined per plan and scale only when you switch tiers.
 - Limit errors return 402/429 with an upsell message so the frontend can surface upgrade prompts.
 
-## Testing
+## Tests
 
 Backend unit tests cover quota enforcement:
 
@@ -152,7 +151,7 @@ The suite verifies token-bucket behaviour and vector-cap checks. Additonal integ
 ## Frontend Overview
 
 - `/` – marketing-style landing page with quick links.
-- `/projects` – primary control panel showing plan usage, upgrade/top-up actions, and project list with create dialog.
+- `/projects` – primary control panel showing plan usage, upgrade actions, and project list with create dialog.
 - Light/dark theme toggle persists in `localStorage` and respects OS defaults.
 
 ## Developer Notes

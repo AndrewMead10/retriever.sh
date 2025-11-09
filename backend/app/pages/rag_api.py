@@ -75,7 +75,7 @@ async def ingest_document(
     if account is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Account missing for project")
 
-    ensure_vector_capacity(db, account=account, plan=plan, additional_vectors=1)
+    ensure_vector_capacity(db, account=account, plan=plan, additional_vectors=1, project=project)
     consume_rate_limit(
         db,
         account_id=account.id,

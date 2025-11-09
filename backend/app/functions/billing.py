@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from polar_sdk import Polar
 from polar_sdk.models.order import Order
 from polar_sdk.models.subscription import Subscription
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -24,8 +25,6 @@ class PolarConfig:
     environment: str
     success_url: str
     cancel_url: str
-    product_topup: str
-    topup_unit_cents: int
 
 
 def _get_config() -> PolarConfig:
@@ -34,8 +33,6 @@ def _get_config() -> PolarConfig:
         environment=settings.polar_environment,
         success_url=settings.polar_success_url,
         cancel_url=settings.polar_cancel_url,
-        product_topup=settings.polar_product_topup,
-        topup_unit_cents=settings.polar_topup_unit_cents,
     )
 
     if not config.access_token:
@@ -47,52 +44,42 @@ def _client(config: PolarConfig) -> Polar:
     return Polar(access_token=config.access_token, server=config.environment)
 
 
-def create_topup_checkout_session(
-    session: Session,
-    *,
-    account: Account,
-    user_email: str,
-    quantity_millions: int,
-) -> str:
-    if quantity_millions <= 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Quantity must be positive")
-
+def create_checkout_session(account: Account, plan_slug: str) -> str:
     config = _get_config()
-    if not config.product_topup:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="Polar product for vector top-ups not configured")
-    if config.topup_unit_cents <= 0:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Polar top-up unit amount must be configured",
-        )
-
-    subscription = account.subscription
-    if subscription is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing")
-
     client = _client(config)
 
-    vectors = quantity_millions * 1_000_000
-    metadata: Dict[str, Any] = {
-        "account_id": str(account.id),
-        "intent": "vector_topup",
-        "vectors": str(vectors),
-        "quantity_millions": str(quantity_millions),
-    }
+    # Get plan from database
+    from ..database import get_db_session
+    with get_db_session() as db:
+        plan = db.execute(
+            select(Plan).where(Plan.slug == plan_slug)
+        ).scalar_one_or_none()
 
-    checkout = client.checkouts.create(
-        request={
-            "products": [config.product_topup],
-            "amount": quantity_millions * config.topup_unit_cents,
-            "success_url": config.success_url,
-            "return_url": config.cancel_url,
-            "external_customer_id": _external_customer_id(account.id),
-            "customer_email": user_email,
-            "metadata": metadata,
-        }
-    )
+        if plan is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
-    return checkout.url
+        if not plan.polar_product_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Plan not configured for billing")
+
+    try:
+        # Create checkout session with Polar
+        checkout = client.checkouts.create(
+            request={
+                "products": [plan.polar_product_id],
+                "external_customer_id": _external_customer_id(account.id),
+                "success_url": config.success_url,
+                "return_url": config.cancel_url,
+                "metadata": {
+                    "account_id": str(account.id),
+                    "intent": "plan_upgrade",
+                    "plan_id": str(plan.id),
+                }
+            }
+        )
+        return checkout.url
+    except Exception as exc:  # pragma: no cover
+        print(exc)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unable to create checkout session") from exc
 
 
 def create_billing_portal(account: Account) -> str:
@@ -160,19 +147,6 @@ def handle_checkout_completed(
 
         session.add(subscription)
         apply_plan_limits(session, account=account, plan=target_plan)
-    elif intent == "vector_topup":
-        from ..database.models import VectorTopUp
-
-        vectors = int(order.metadata.get("vectors", "0"))
-        if vectors <= 0:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid vector quantity")
-        topup = VectorTopUp(
-            account_id=account.id,
-            vectors_granted=vectors,
-            vectors_remaining=vectors,
-            polar_order_id=order.id,
-        )
-        session.add(topup)
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unknown checkout intent")
 
