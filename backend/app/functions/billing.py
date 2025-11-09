@@ -57,15 +57,7 @@ def create_upgrade_checkout_session(
     target_plan: Plan,
 ) -> str:
     subscription = account.subscription
-    if subscription is None:
-        subscription = AccountSubscription(
-            account_id=account.id,
-            plan_id=target_plan.id,
-            status="pending",
-        )
-        session.add(subscription)
-        session.flush()
-    elif subscription.plan_id == target_plan.id and subscription.status in {"active", "pending"}:
+    if subscription and subscription.plan_id == target_plan.id and subscription.status == "active":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Already on the Building plan")
 
     config = _get_config()
@@ -78,6 +70,7 @@ def create_upgrade_checkout_session(
     client = _client(config)
     metadata: Dict[str, Any] = {
         "account_id": str(account.id),
+        "plan_id": str(target_plan.id),
         "intent": "plan_upgrade",
     }
 
@@ -92,7 +85,6 @@ def create_upgrade_checkout_session(
         }
     )
 
-    session.add(subscription)
     return checkout.url
 
 
@@ -141,7 +133,6 @@ def create_topup_checkout_session(
         }
     )
 
-    session.add(subscription)
     return checkout.url
 
 
@@ -184,25 +175,32 @@ def handle_checkout_completed(
     intent: str,
     plan_lookup: Dict[str, Plan],
 ) -> None:
-    subscription = account.subscription
-    if subscription is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing")
-
     if intent == "plan_upgrade":
-        building_plan = plan_lookup.get("building")
-        if building_plan is None:
-            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Building plan missing")
-        subscription.plan_id = building_plan.id
-        subscription.status = "active"
+        # Get plan_id from order metadata
+        plan_id = int(order.metadata.get("plan_id"))
+        target_plan = plan_lookup.get(str(plan_id)) or next(
+            (p for p in plan_lookup.values() if p.id == plan_id), None
+        )
+
+        if target_plan is None:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Target plan not found")
+
+        # Create subscription directly as active after successful payment
+        subscription = AccountSubscription(
+            account_id=account.id,
+            plan_id=target_plan.id,
+            status="active",
+            polar_customer_id=order.customer_id,
+        )
+
+        # Sync subscription data from Polar if available
         if order.subscription is not None:
             _sync_subscription(subscription, order.subscription)
         elif order.subscription_id:
             subscription.polar_subscription_id = order.subscription_id
-            subscription.status = "active"
-        if order.customer_id:
-            subscription.polar_customer_id = order.customer_id
-        apply_plan_limits(session, account=account, plan=building_plan)
+
         session.add(subscription)
+        apply_plan_limits(session, account=account, plan=target_plan)
     elif intent == "vector_topup":
         from ..database.models import VectorTopUp
 
