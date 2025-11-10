@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -11,9 +11,9 @@ from ..config import settings
 from ..database import get_db, get_db_session
 from ..database.models import Plan
 from ..functions.accounts import (
-    get_account,
-    get_account_and_plan,
-    get_account_by_id,
+    get_user,
+    get_user_and_plan,
+    get_user_by_id,
 )
 from ..functions.billing import (
     create_billing_portal,
@@ -23,6 +23,25 @@ from ..functions.billing import (
 )
 from ..middleware.auth import get_current_user
 from polar_sdk import webhooks as polar_webhooks
+
+
+def _extract_metadata(payload: Any) -> dict[str, Any]:
+    """Return metadata dict from Polar payload objects or raw dicts."""
+    if payload is None:
+        return {}
+
+    if isinstance(payload, dict):
+        metadata = payload.get("metadata") or {}
+    else:
+        metadata = getattr(payload, "metadata", None) or {}
+
+    if isinstance(metadata, dict):
+        return metadata
+    # Some SDK models may expose metadata as custom mapping types.
+    try:
+        return dict(metadata)
+    except Exception:  # pragma: no cover - defensive
+        return {}
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -37,8 +56,8 @@ def create_checkout(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    account = get_account(db, user_id=current_user.id)
-    url = create_checkout_session(account, plan_slug)
+    user = get_user(db, user_id=current_user.id)
+    url = create_checkout_session(user, plan_slug)
     return CheckoutResponse(url=url)
 
 
@@ -47,8 +66,8 @@ def open_billing_portal(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    account, _ = get_account_and_plan(db, user_id=current_user.id)
-    url = create_billing_portal(account)
+    user, _ = get_user_and_plan(db, user_id=current_user.id)
+    url = create_billing_portal(user)
     return CheckoutResponse(url=url)
 
 
@@ -68,64 +87,63 @@ async def polar_webhook(
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Invalid webhook payload: {exc}") from exc
 
-    event_dump = event.model_dump()
-    event_type = event_dump.get("type")
-    data = event_dump.get("data")
+    event_type = getattr(event, "TYPE", None) or event.model_dump(by_alias=True).get("type")
+    data = event.data
 
     if event_type == "order.paid":
-        metadata = data.get("metadata", {}) if isinstance(data, dict) else {}
-        account_id = metadata.get("account_id")
+        metadata = _extract_metadata(data)
+        user_id = metadata.get("user_id")
         intent = metadata.get("intent")
-        if not account_id or not intent:
+        if not user_id or not intent:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Missing metadata on Polar order")
 
         with get_db_session() as db:
-            account = get_account_by_id(db, int(account_id))
-            if account is None:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Account not found for webhook")
+            user = get_user_by_id(db, int(user_id))
+            if user is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found for webhook")
 
             plan_lookup = {plan.slug: plan for plan in db.execute(select(Plan)).scalars()}
-            order = event.data  # type: ignore[attr-defined]
+            order = data
             handle_checkout_completed(
                 db,
                 order=order,
-                account=account,
+                user=user,
                 intent=intent,
                 plan_lookup=plan_lookup,
             )
             db.commit()
 
     elif event_type in {"subscription.updated", "subscription.active", "subscription.uncanceled"}:
-        metadata = data.get("metadata", {}) if isinstance(data, dict) else {}
-        account_id = metadata.get("account_id")
-        if not account_id:
+        metadata = _extract_metadata(data)
+        user_id = metadata.get("user_id")
+        if not user_id:
             return {"received": True}
 
         with get_db_session() as db:
-            account = get_account_by_id(db, int(account_id))
-            if account is None:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Account not found for webhook")
+            user = get_user_by_id(db, int(user_id))
+            if user is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found for webhook")
 
-            subscription_payload = event.data  # type: ignore[attr-defined]
+            subscription_payload = data
             update_subscription_state(
                 db,
-                account=account,
+                user=user,
                 subscription_payload=subscription_payload,
             )
             db.commit()
 
     elif event_type in {"subscription.canceled", "subscription.revoked"}:
-        metadata = data.get("metadata", {}) if isinstance(data, dict) else {}
-        account_id = metadata.get("account_id")
-        if not account_id:
+        metadata = _extract_metadata(data)
+        user_id = metadata.get("user_id")
+        if not user_id:
             return {"received": True}
 
         with get_db_session() as db:
-            account = get_account_by_id(db, int(account_id))
-            if account and account.subscription:
-                account.subscription.status = "canceled"
-                account.subscription.cancel_at_period_end = True
-                db.add(account.subscription)
+            user = get_user_by_id(db, int(user_id))
+            if user and user.subscription:
+                user.subscription.status = "canceled"
+                user.subscription.cancel_at_period_end = True
+                db.add(user.subscription)
                 db.commit()
 
     return {"received": True}

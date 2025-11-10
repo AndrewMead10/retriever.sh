@@ -1,4 +1,4 @@
-from .models import Account, AccountUsage, User
+from .models import UserUsage, User
 from . import get_db_session
 
 
@@ -23,11 +23,7 @@ def create_user(email: str, hashed_password: str) -> User:
         db.add(user)
         db.flush()
 
-        account = Account(owner_user_id=user.id, name=None)
-        db.add(account)
-        db.flush()
-
-        usage = AccountUsage(account_id=account.id)
+        usage = UserUsage(user_id=user.id)
         db.add(usage)
 
         db.commit()

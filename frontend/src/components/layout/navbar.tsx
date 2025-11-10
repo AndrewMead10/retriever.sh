@@ -96,6 +96,17 @@ export function Navbar() {
                 >
                   [ PROJECTS ]
                 </Link>
+                <Link
+                  to="/billing"
+                  search={{ status: undefined }}
+                  className={`text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 ${
+                    isActive('/billing')
+                      ? 'text-foreground font-black'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  [ BILLING ]
+                </Link>
               </div>
 
               <div className="flex items-center space-x-4">

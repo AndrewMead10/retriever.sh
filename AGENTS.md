@@ -14,6 +14,9 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Frontend auth hook now accepts `useAuth({ fetchUser: false })` to skip eager `/api/auth/me` calls on public screens like login/register, preventing refresh loops while unauthenticated. Navbar uses current route to disable the fetch on `/auth/*` paths.
 - Polar config bug: FastAPI settings now read `POLAR_PRODUCT_TINKERING_ID`/`POLAR_PRODUCT_BUILDING_ID`/`POLAR_PRODUCT_SCALE_ID` via `AliasChoices` so plan flows pick up Polar product UUIDs correctly in Docker deployments.
 - Billing UX refresh (Nov 9, 2025): subscription CTAs on projects route users to `/pricing` to pick Tinkering/Building/Scale plans directly; legacy `/api/billing/upgrade`, `/api/billing/topup`, and `/api/billing/enterprise` endpoints and UI entry points were removed in favor of self-serve plan changes.
+- Billing page (Nov 9, 2025): `/billing` now mirrors Polar return URLs, shows the same plan/usage data as `/projects`, and links into checkout + the Polar customer portal. `/billing/success`, `/billing/canceled`, and `/billing/portal` share the view but display contextual banners so Polar success/cancel/portal return URLs can be pointed there without custom screens.
+- Polar webhook fix (Nov 9, 2025): Polar's SDK exposes the event type under the `TYPE` alias, so webhook handlers now read `event.TYPE`/`by_alias` dumps to correctly process `order.paid` and subscription lifecycle events; prior events were being acknowledged without provisioning plans.
+- Vector top-up cleanup (Nov 9, 2025): removed the `VectorTopUp` model/table, the `allow_topups` plan flag, and the associated capacity math so vector limits now depend solely on the active plan plus the new Alembic `0004_remove_vector_topups` migration.
 
 ---
 

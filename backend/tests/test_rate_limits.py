@@ -6,13 +6,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.models import (
-    Account,
-    AccountSubscription,
-    AccountUsage,
+    User,
+    UserSubscription,
+    UserUsage,
     Plan,
     Project,
     RateLimitBucket,
-    User,
 )
 from app.functions.accounts import ensure_vector_capacity, get_per_project_vector_limit, increment_usage
 from app.functions.rate_limits import RateLimitExceeded, consume_rate_limit
@@ -33,7 +32,7 @@ def session() -> Session:
 
 
 @pytest.fixture
-def seeded_account(session: Session):
+def seeded_user(session: Session):
     plan = Plan(
         slug="tinkering",
         name="Tinkering",
@@ -42,7 +41,6 @@ def seeded_account(session: Session):
         ingest_qps_limit=1,
         project_limit=3,
         vector_limit=30_000,
-        allow_topups=False,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -53,17 +51,13 @@ def seeded_account(session: Session):
     session.add(user)
     session.flush()
 
-    account = Account(owner_user_id=user.id)
-    session.add(account)
-    session.flush()
-
-    subscription = AccountSubscription(account_id=account.id, plan_id=plan.id, status="active")
-    usage = AccountUsage(account_id=account.id)
+    subscription = UserSubscription(user_id=user.id, plan_id=plan.id, status="active")
+    usage = UserUsage(user_id=user.id)
     session.add_all([subscription, usage])
     session.flush()
 
     bucket = RateLimitBucket(
-        account_id=account.id,
+        user_id=user.id,
         limit_type="query",
         tokens=1.0,
         last_refill=datetime.utcnow(),
@@ -71,26 +65,26 @@ def seeded_account(session: Session):
     )
     session.add(bucket)
     session.commit()
-    return account, plan
+    return user, plan
 
 
-def test_consume_rate_limit_blocks_when_exhausted(session: Session, seeded_account):
-    account, _ = seeded_account
+def test_consume_rate_limit_blocks_when_exhausted(session: Session, seeded_user):
+    user, _ = seeded_user
 
     # First request should succeed and consume available token.
-    result = consume_rate_limit(session, account_id=account.id, limit_type="query")
+    result = consume_rate_limit(session, user_id=user.id, limit_type="query")
     assert result.remaining <= 1
     session.commit()
 
     # Immediate second request should raise 429 due to no refill time.
     with pytest.raises(RateLimitExceeded):
-        consume_rate_limit(session, account_id=account.id, limit_type="query")
+        consume_rate_limit(session, user_id=user.id, limit_type="query")
 
 
-def test_usage_counters_increment_and_vector_capacity(session: Session, seeded_account):
-    account, plan = seeded_account
+def test_usage_counters_increment_and_vector_capacity(session: Session, seeded_user):
+    user, plan = seeded_user
 
-    usage = increment_usage(session, account=account, queries=2, ingests=1, vectors=500)
+    usage = increment_usage(session, user=user, queries=2, ingests=1, vectors=500)
     session.commit()
 
     assert usage.total_queries == 2
@@ -102,7 +96,7 @@ def test_usage_counters_increment_and_vector_capacity(session: Session, seeded_a
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        ensure_vector_capacity(session, account=account, plan=plan, additional_vectors=1)
+        ensure_vector_capacity(session, user=user, plan=plan, additional_vectors=1)
 
     assert exc.value.status_code == 402
 
@@ -116,7 +110,6 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
         ingest_qps_limit=100,
         project_limit=-1,
         vector_limit=-1,
-        allow_topups=False,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -127,12 +120,8 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
     session.add(user)
     session.flush()
 
-    account = Account(owner_user_id=user.id)
-    session.add(account)
-    session.flush()
-
-    subscription = AccountSubscription(account_id=account.id, plan_id=plan.id, status="active")
-    usage = AccountUsage(account_id=account.id)
+    subscription = UserSubscription(user_id=user.id, plan_id=plan.id, status="active")
+    usage = UserUsage(user_id=user.id)
     session.add_all([subscription, usage])
     session.flush()
 
@@ -140,7 +129,7 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
     assert limit == 250_000
 
     project = Project(
-        account_id=account.id,
+        user_id=user.id,
         name="Scale Workspace",
         description=None,
         slug="scale-workspace",
@@ -164,7 +153,7 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
     # Should allow ingesting the final available vector
     ensure_vector_capacity(
         session,
-        account=account,
+        user=user,
         plan=plan,
         additional_vectors=1,
         project=project,
@@ -177,7 +166,7 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
     with pytest.raises(HTTPException) as exc:
         ensure_vector_capacity(
             session,
-            account=account,
+            user=user,
             plan=plan,
             additional_vectors=1,
             project=project,

@@ -12,8 +12,8 @@ from ..database import get_db
 from ..database.models import Project
 from ..functions.accounts import (
     ensure_project_capacity,
-    get_account,
-    get_account_and_plan,
+    get_user,
+    get_user_and_plan,
     get_per_project_vector_limit,
     get_project_limit,
     get_usage,
@@ -106,19 +106,19 @@ def projects_onload(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    account = get_account(db, user_id=current_user.id)
-    subscription = account.subscription
+    user = get_user(db, user_id=current_user.id)
+    subscription = user.subscription
     plan = subscription.plan if subscription else None
-    usage = get_usage(db, account=account)
+    usage = get_usage(db, user=user)
     projects = (
         db.query(Project)
-        .filter(Project.account_id == account.id, Project.active == True)
+        .filter(Project.user_id == user.id, Project.active == True)
         .order_by(Project.created_at.desc())
         .all()
     )
 
     needs_subscription = plan is None
-    vector_limit = get_vector_limit(db, account=account, plan=plan) if plan else None
+    vector_limit = get_vector_limit(db, user=user, plan=plan) if plan else None
     project_limit = get_project_limit(plan) if plan else None
 
     return ProjectListResponse(
@@ -170,16 +170,16 @@ def create_project(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    account, plan = get_account_and_plan(db, user_id=current_user.id)
+    user, plan = get_user_and_plan(db, user_id=current_user.id)
 
-    ensure_project_capacity(db, account=account, plan=plan)
+    ensure_project_capacity(db, user=user, plan=plan)
 
     name = payload.name.strip()
     slug = _slugify(name)
 
     existing_slug = (
         db.query(Project)
-        .filter(Project.account_id == account.id, Project.slug == slug, Project.active == True)
+        .filter(Project.user_id == user.id, Project.slug == slug, Project.active == True)
         .first()
     )
     if existing_slug:
@@ -195,7 +195,7 @@ def create_project(
     ingest_key_hash = hash_api_key(ingest_key_plain)
 
     project = Project(
-        account_id=account.id,
+        user_id=user.id,
         name=name,
         description=payload.description,
         slug=slug,
@@ -253,12 +253,12 @@ def delete_project(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    account = get_account(db, user_id=current_user.id)
+    user = get_user(db, user_id=current_user.id)
 
-    # Find the project and verify it belongs to the user's account
+    # Find the project and verify it belongs to the user
     project = (
         db.query(Project)
-        .filter(Project.id == payload.project_id, Project.account_id == account.id, Project.active == True)
+        .filter(Project.id == payload.project_id, Project.user_id == user.id, Project.active == True)
         .first()
     )
 

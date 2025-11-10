@@ -12,7 +12,7 @@ if settings.logfire_enabled:
     import logfire
 
 from ..database import get_db
-from ..database.models import Account, AccountSubscription, Plan, Project
+from ..database.models import User, UserSubscription, Plan, Project
 from ..functions.accounts import decrement_vector_usage, ensure_vector_capacity, increment_usage
 from ..functions.api_keys import verify_api_key
 from ..functions.rate_limits import consume_rate_limit
@@ -26,9 +26,9 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 def _load_project(session: Session, project_id: int) -> Project:
     project = (
         session.query(Project)
-        .join(Account, Project.account_id == Account.id)
-        .join(AccountSubscription, AccountSubscription.account_id == Account.id)
-        .join(Plan, AccountSubscription.plan_id == Plan.id)
+        .join(User, Project.user_id == User.id)
+        .join(UserSubscription, UserSubscription.user_id == User.id)
+        .join(Plan, UserSubscription.plan_id == Plan.id)
         .filter(Project.id == project_id, Project.active == True)
         .first()
     )
@@ -45,11 +45,11 @@ def _verify_project_key(project: Project, api_key: str | None) -> None:
 
 
 def _get_plan(project: Project) -> Plan:
-    subscription = project.account.subscription if project.account else None
+    subscription = project.user.subscription if project.user else None
     if subscription is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing for project account")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing for project user")
     if subscription.plan is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Plan missing for project account")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Plan missing for project user")
     return subscription.plan
 
 
@@ -71,14 +71,14 @@ async def ingest_document(
     _verify_project_key(project, x_project_key)
 
     plan = _get_plan(project)
-    account = project.account
-    if account is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Account missing for project")
+    user = project.user
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
 
-    ensure_vector_capacity(db, account=account, plan=plan, additional_vectors=1, project=project)
+    ensure_vector_capacity(db, user=user, plan=plan, additional_vectors=1, project=project)
     consume_rate_limit(
         db,
-        account_id=account.id,
+        user_id=user.id,
         limit_type="ingest",
         error_detail="Ingestion rate limit exceeded. Upgrade to increase throughput.",
     )
@@ -101,7 +101,7 @@ async def ingest_document(
 
     project.vector_count += 1
     project.last_ingest_at = datetime.utcnow()
-    increment_usage(db, account=account, ingests=1, vectors=1)
+    increment_usage(db, user=user, ingests=1, vectors=1)
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -122,9 +122,9 @@ async def delete_vector(
     project = _load_project(db, project_id)
     _verify_project_key(project, x_project_key)
 
-    account = project.account
-    if account is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Account missing for project")
+    user = project.user
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
 
     database = vector_store_registry.get_database(project)
     deleted = await anyio.to_thread.run_sync(lambda: database.delete_document(document_id))
@@ -132,7 +132,7 @@ async def delete_vector(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     project.vector_count = max(0, project.vector_count - 1)
-    decrement_vector_usage(db, account=account, vectors=1)
+    decrement_vector_usage(db, user=user, vectors=1)
     db.add(project)
     db.commit()
     return None
@@ -163,14 +163,14 @@ async def query_project(
     project = _load_project(db, project_id)
     _verify_project_key(project, x_project_key)
 
-    account = project.account
-    if account is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Account missing for project")
+    user = project.user
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
     plan = _get_plan(project)
 
     consume_rate_limit(
         db,
-        account_id=account.id,
+        user_id=user.id,
         limit_type="query",
         error_detail="Query rate limit exceeded. Upgrade to increase throughput.",
     )
@@ -195,7 +195,7 @@ async def query_project(
         )
     )
 
-    increment_usage(db, account=account, queries=1)
+    increment_usage(db, user=user, queries=1)
     db.commit()
 
     results = [QueryResult.model_validate(row) for row in rows]
@@ -205,7 +205,7 @@ async def query_project(
         logfire.info("RAG query completed successfully", {
             "project_id": project_id,
             "result_count": len(results),
-            "account_id": account.id,
+            "user_id": user.id,
         })
 
     return QueryResponse(results=results)

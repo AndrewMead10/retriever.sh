@@ -43,7 +43,7 @@ def _refill_tokens(bucket: RateLimitBucket, now: datetime) -> None:
 def consume_rate_limit(
     session: Session,
     *,
-    account_id: int,
+    user_id: int,
     limit_type: str,
     cost: float = 1.0,
     error_detail: str | None = None,
@@ -51,7 +51,7 @@ def consume_rate_limit(
     bucket = (
         session.query(RateLimitBucket)
         .filter(
-            RateLimitBucket.account_id == account_id,
+            RateLimitBucket.user_id == user_id,
             RateLimitBucket.limit_type == limit_type,
         )
         .with_for_update()

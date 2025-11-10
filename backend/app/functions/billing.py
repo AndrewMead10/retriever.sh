@@ -11,12 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..database.models import Account, AccountSubscription, Plan
+from ..database.models import User, UserSubscription, Plan
 from .accounts import apply_plan_limits
 
 
-def _external_customer_id(account_id: int) -> str:
-    return f"account-{account_id}"
+def _external_customer_id(user_id: int) -> str:
+    return f"user-{user_id}"
 
 
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ def _client(config: PolarConfig) -> Polar:
     return Polar(access_token=config.access_token, server=config.environment)
 
 
-def create_checkout_session(account: Account, plan_slug: str) -> str:
+def create_checkout_session(user: User, plan_slug: str) -> str:
     config = _get_config()
     client = _client(config)
 
@@ -66,11 +66,11 @@ def create_checkout_session(account: Account, plan_slug: str) -> str:
         checkout = client.checkouts.create(
             request={
                 "products": [plan.polar_product_id],
-                "external_customer_id": _external_customer_id(account.id),
+                "external_customer_id": _external_customer_id(user.id),
                 "success_url": config.success_url,
                 "return_url": config.cancel_url,
                 "metadata": {
-                    "account_id": str(account.id),
+                    "user_id": str(user.id),
                     "intent": "plan_upgrade",
                     "plan_id": str(plan.id),
                 }
@@ -82,8 +82,8 @@ def create_checkout_session(account: Account, plan_slug: str) -> str:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unable to create checkout session") from exc
 
 
-def create_billing_portal(account: Account) -> str:
-    subscription = account.subscription
+def create_billing_portal(user: User) -> str:
+    subscription = user.subscription
     if subscription is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing")
 
@@ -93,7 +93,7 @@ def create_billing_portal(account: Account) -> str:
     try:
         customer_session = client.customer_sessions.create(
             request={
-                "external_customer_id": _external_customer_id(account.id),
+                "external_customer_id": _external_customer_id(user.id),
                 "return_url": settings.polar_portal_return_url,
             }
         )
@@ -105,7 +105,7 @@ def create_billing_portal(account: Account) -> str:
     return customer_session.url
 
 
-def _sync_subscription(subscription_model: AccountSubscription, payload: Subscription) -> None:
+def _sync_subscription(subscription_model: UserSubscription, payload: Subscription) -> None:
     subscription_model.polar_subscription_id = payload.id
     subscription_model.polar_customer_id = payload.customer_id
     subscription_model.status = payload.status.value
@@ -117,7 +117,7 @@ def handle_checkout_completed(
     session: Session,
     *,
     order: Order,
-    account: Account,
+    user: User,
     intent: str,
     plan_lookup: Dict[str, Plan],
 ) -> None:
@@ -132,8 +132,8 @@ def handle_checkout_completed(
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Target plan not found")
 
         # Create subscription directly as active after successful payment
-        subscription = AccountSubscription(
-            account_id=account.id,
+        subscription = UserSubscription(
+            user_id=user.id,
             plan_id=target_plan.id,
             status="active",
             polar_customer_id=order.customer_id,
@@ -146,7 +146,7 @@ def handle_checkout_completed(
             subscription.polar_subscription_id = order.subscription_id
 
         session.add(subscription)
-        apply_plan_limits(session, account=account, plan=target_plan)
+        apply_plan_limits(session, user=user, plan=target_plan)
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unknown checkout intent")
 
@@ -154,12 +154,12 @@ def handle_checkout_completed(
 def update_subscription_state(
     session: Session,
     *,
-    account: Account,
+    user: User,
     subscription_payload: Subscription,
 ) -> None:
-    account_subscription = account.subscription
-    if account_subscription is None:
+    user_subscription = user.subscription
+    if user_subscription is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing")
 
-    _sync_subscription(account_subscription, subscription_payload)
-    session.add(account_subscription)
+    _sync_subscription(user_subscription, subscription_payload)
+    session.add(user_subscription)

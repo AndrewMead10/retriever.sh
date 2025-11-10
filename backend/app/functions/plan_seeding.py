@@ -16,7 +16,6 @@ DEFAULT_PLANS = [
         "ingest_qps_limit": 1,
         "project_limit": 3,
         "vector_limit": 30_000,
-        "allow_topups": False,
         "polar_product_id": None,
     },
     {
@@ -27,7 +26,6 @@ DEFAULT_PLANS = [
         "ingest_qps_limit": 10,
         "project_limit": 20,
         "vector_limit": 2_000_000,
-        "allow_topups": False,
         "polar_product_id": None,
     },
     {
@@ -38,7 +36,6 @@ DEFAULT_PLANS = [
         "ingest_qps_limit": 100,
         "project_limit": -1,
         "vector_limit": -1,
-        "allow_topups": False,
         "polar_product_id": None,
     },
 ]

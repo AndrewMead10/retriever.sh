@@ -30,7 +30,10 @@ app.add_exception_handler(Exception, global_exception_handler)
 # Instrument FastAPI with LogFire
 if settings.logfire_enabled:
     import logfire
-    logfire.instrument_fastapi(app)
+    logfire.instrument_fastapi(
+        app,
+        excluded_urls=["/livez", "/readyz"]
+    )
 
 # Mount all API routes under a common /api prefix to avoid
 # collisions with SPA client-side routes like /auth/* when
@@ -46,6 +49,23 @@ app.include_router(rag_api.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
 app.include_router(google.router, prefix="/api")
 app.include_router(connect.router, prefix="/api/connect")
+
+
+@app.get("/livez")
+def livez():
+    """Liveness check"""
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+def readyz():
+    """Readiness check"""
+    try:
+        with get_db_session() as db:
+            db.execute("SELECT 1")
+        return {"status": "ready"}
+    except Exception as e:
+        return {"status": "not ready", "error": str(e)}
 
 
 class SPAStaticFiles(StaticFiles):
@@ -78,23 +98,6 @@ class SPAStaticFiles(StaticFiles):
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="static")
-
-
-@app.get("/livez")
-def livez():
-    """Liveness check"""
-    return {"status": "ok"}
-
-
-@app.get("/readyz")
-def readyz():
-    """Readiness check"""
-    try:
-        with get_db_session() as db:
-            db.execute("SELECT 1")
-        return {"status": "ready"}
-    except Exception as e:
-        return {"status": "not ready", "error": str(e)}
 
 
 @app.on_event("startup")

@@ -14,6 +14,10 @@ import { Route as DocsRouteImport } from './routes/docs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as ConnectIndexRouteImport } from './routes/connect/index'
+import { Route as BillingIndexRouteImport } from './routes/billing/index'
+import { Route as BillingSuccessRouteImport } from './routes/billing/success'
+import { Route as BillingPortalRouteImport } from './routes/billing/portal'
+import { Route as BillingCanceledRouteImport } from './routes/billing/canceled'
 import { Route as AuthVerifyEmailIndexRouteImport } from './routes/auth/verify-email/index'
 import { Route as AuthResetIndexRouteImport } from './routes/auth/reset/index'
 import { Route as AuthRegisterIndexRouteImport } from './routes/auth/register/index'
@@ -44,6 +48,26 @@ const ConnectIndexRoute = ConnectIndexRouteImport.update({
   path: '/connect/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BillingIndexRoute = BillingIndexRouteImport.update({
+  id: '/billing/',
+  path: '/billing/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingSuccessRoute = BillingSuccessRouteImport.update({
+  id: '/billing/success',
+  path: '/billing/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingPortalRoute = BillingPortalRouteImport.update({
+  id: '/billing/portal',
+  path: '/billing/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingCanceledRoute = BillingCanceledRouteImport.update({
+  id: '/billing/canceled',
+  path: '/billing/canceled',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthVerifyEmailIndexRoute = AuthVerifyEmailIndexRouteImport.update({
   id: '/auth/verify-email/',
   path: '/auth/verify-email/',
@@ -69,6 +93,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/docs': typeof DocsRoute
   '/pricing': typeof PricingRoute
+  '/billing/canceled': typeof BillingCanceledRoute
+  '/billing/portal': typeof BillingPortalRoute
+  '/billing/success': typeof BillingSuccessRoute
+  '/billing': typeof BillingIndexRoute
   '/connect': typeof ConnectIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
@@ -80,6 +108,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/docs': typeof DocsRoute
   '/pricing': typeof PricingRoute
+  '/billing/canceled': typeof BillingCanceledRoute
+  '/billing/portal': typeof BillingPortalRoute
+  '/billing/success': typeof BillingSuccessRoute
+  '/billing': typeof BillingIndexRoute
   '/connect': typeof ConnectIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/auth/login': typeof AuthLoginIndexRoute
@@ -92,6 +124,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/docs': typeof DocsRoute
   '/pricing': typeof PricingRoute
+  '/billing/canceled': typeof BillingCanceledRoute
+  '/billing/portal': typeof BillingPortalRoute
+  '/billing/success': typeof BillingSuccessRoute
+  '/billing/': typeof BillingIndexRoute
   '/connect/': typeof ConnectIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/auth/login/': typeof AuthLoginIndexRoute
@@ -105,6 +141,10 @@ export interface FileRouteTypes {
     | '/'
     | '/docs'
     | '/pricing'
+    | '/billing/canceled'
+    | '/billing/portal'
+    | '/billing/success'
+    | '/billing'
     | '/connect'
     | '/projects'
     | '/auth/login'
@@ -116,6 +156,10 @@ export interface FileRouteTypes {
     | '/'
     | '/docs'
     | '/pricing'
+    | '/billing/canceled'
+    | '/billing/portal'
+    | '/billing/success'
+    | '/billing'
     | '/connect'
     | '/projects'
     | '/auth/login'
@@ -127,6 +171,10 @@ export interface FileRouteTypes {
     | '/'
     | '/docs'
     | '/pricing'
+    | '/billing/canceled'
+    | '/billing/portal'
+    | '/billing/success'
+    | '/billing/'
     | '/connect/'
     | '/projects/'
     | '/auth/login/'
@@ -139,6 +187,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DocsRoute: typeof DocsRoute
   PricingRoute: typeof PricingRoute
+  BillingCanceledRoute: typeof BillingCanceledRoute
+  BillingPortalRoute: typeof BillingPortalRoute
+  BillingSuccessRoute: typeof BillingSuccessRoute
+  BillingIndexRoute: typeof BillingIndexRoute
   ConnectIndexRoute: typeof ConnectIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   AuthLoginIndexRoute: typeof AuthLoginIndexRoute
@@ -184,6 +236,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnectIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/billing/': {
+      id: '/billing/'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/success': {
+      id: '/billing/success'
+      path: '/billing/success'
+      fullPath: '/billing/success'
+      preLoaderRoute: typeof BillingSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/portal': {
+      id: '/billing/portal'
+      path: '/billing/portal'
+      fullPath: '/billing/portal'
+      preLoaderRoute: typeof BillingPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/canceled': {
+      id: '/billing/canceled'
+      path: '/billing/canceled'
+      fullPath: '/billing/canceled'
+      preLoaderRoute: typeof BillingCanceledRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/verify-email/': {
       id: '/auth/verify-email/'
       path: '/auth/verify-email'
@@ -219,6 +299,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DocsRoute: DocsRoute,
   PricingRoute: PricingRoute,
+  BillingCanceledRoute: BillingCanceledRoute,
+  BillingPortalRoute: BillingPortalRoute,
+  BillingSuccessRoute: BillingSuccessRoute,
+  BillingIndexRoute: BillingIndexRoute,
   ConnectIndexRoute: ConnectIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   AuthLoginIndexRoute: AuthLoginIndexRoute,
