@@ -277,8 +277,7 @@ function ProjectsPage() {
             </div>
           </CardHeader>
           <CardContent className="grid gap-6 md:grid-cols-3">
-                    <MetricCard title="QUERY QPS" value={`${plan.query_qps_limit}`} help="per second" />
-            <MetricCard title="INGEST QPS" value={`${plan.ingest_qps_limit}`} help="per second" />
+            <MetricCard title="QUERY QPS" value={`${plan.query_qps_limit}`} help="per second" />
             <MetricCard
               title="VECTORS"
               value={formatVectorLimit(usage.total_vectors, vectorLimit)}

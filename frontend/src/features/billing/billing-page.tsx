@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
+import { PricingSection, type PlanOption } from '@/components/pricing'
 import { api, useCreateCheckout, useProjects } from '@/lib/api'
 import { formatNumber, formatVectorLimit } from '@/utils/format'
 
@@ -35,24 +36,14 @@ const STATUS_BANNERS: Record<BillingStatus, { title: string; body: string; tone:
   },
 }
 
-interface PlanOption {
-  slug: string
-  label: string
-  price: string
-  frequency: string
-  description: string
-  highlight?: boolean
-  features: string[]
-}
-
-const PLAN_OPTIONS: PlanOption[] = [
+const BILLING_PLANS: PlanOption[] = [
   {
     slug: 'tinkering',
     label: 'TINKERING',
     price: '$5',
     frequency: '/mo',
     description: 'Perfect for proving out your RAG stack.',
-    features: ['1 query per second', '3 projects', '≈10k vectors per project', 'Email support'],
+    features: ['5 queries per second', '3 projects', '≈10k vectors per project'],
   },
   {
     slug: 'building',
@@ -61,7 +52,7 @@ const PLAN_OPTIONS: PlanOption[] = [
     frequency: '/mo',
     description: 'For actively building and shipping features.',
     highlight: true,
-    features: ['10 queries per second', '20 projects', '≈100k vectors per project', 'Priority support'],
+    features: ['10 queries per second', '20 projects', '≈100k vectors per project'],
   },
   {
     slug: 'scale',
@@ -69,7 +60,7 @@ const PLAN_OPTIONS: PlanOption[] = [
     price: '$50',
     frequency: '/mo',
     description: 'High QPS and per-project capacity for production workloads.',
-    features: ['100 queries per second', 'Unlimited projects', '250k vectors per project', 'Premium support access'],
+    features: ['100 queries per second', 'Unlimited projects', '250k vectors per project'],
   },
 ]
 
@@ -211,66 +202,27 @@ export function BillingPage({ status }: { status?: BillingStatus }) {
               )}
             </div>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-4">
+          <CardContent className="grid gap-4 md:grid-cols-3">
             <SummaryItem label="PRICE" value={needsSubscription ? '--' : planDisplayPrice} />
             <SummaryItem label="QUERY QPS" value={plan ? `${plan.query_qps_limit}` : '--'} help="per second" />
-            <SummaryItem label="INGEST QPS" value={plan ? `${plan.ingest_qps_limit}` : '--'} help="per second" />
             <SummaryItem label="PROJECTS" value={formatLimit(projectLimit, needsSubscription)} />
           </CardContent>
         </Card>
 
-        <section className="grid gap-6 md:grid-cols-3">
-          {PLAN_OPTIONS.map((option) => {
-            const isCurrent = plan?.slug === option.slug && !needsSubscription
-            const isPending = pendingSlug === option.slug && createCheckout.isPending
-            return (
-              <Card
-                key={option.slug}
-                className={`sharp-corners border-2 ${
-                  option.highlight ? 'bg-foreground text-background border-foreground' : 'bg-card border-foreground dither-border'
-                }`}
-              >
-                <CardHeader className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-black tracking-wide">{option.label}</CardTitle>
-                    {option.highlight && (
-                      <Badge variant={option.highlight ? 'secondary' : 'outline'} className="sharp-corners">
-                        POPULAR
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-4xl font-black">
-                    {option.price}
-                    <span className="text-base font-normal">{option.frequency}</span>
-                  </div>
-                  <CardDescription className={option.highlight ? 'text-background/80' : 'text-muted-foreground'}>
-                    {option.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-2 text-sm">
-                    {option.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <span className="font-bold">▶</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    disabled={isCurrent || isPending}
-                    onClick={() => handlePlanSelect(option.slug)}
-                    className={`w-full sharp-corners font-bold border-2 ${
-                      option.highlight
-                        ? 'bg-background text-foreground border-background hover:bg-muted'
-                        : 'bg-background border-foreground hover:bg-foreground hover:text-background'
-                    } ${isCurrent ? 'opacity-60 cursor-not-allowed' : ''}`}
-                  >
-                    {isCurrent ? '[ CURRENT PLAN ]' : isPending ? 'REDIRECTING…' : '[ SELECT PLAN ]'}
-                  </Button>
-                </CardContent>
-              </Card>
-            )
-          })}
+        <section>
+          <PricingSection
+            title={undefined}
+            subtitle={undefined}
+            showHeader={false}
+            showFooter={false}
+            plans={BILLING_PLANS}
+            onSelectPlan={handlePlanSelect}
+            selectedPlan={pendingSlug}
+            isPending={createCheckout.isPending}
+            actionType="checkout"
+            currentPlanSlug={plan?.slug}
+            needsSubscription={needsSubscription}
+          />
         </section>
 
         {needsSubscription ? (

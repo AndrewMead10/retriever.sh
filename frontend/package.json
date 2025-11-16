@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "tsc && vite build",
     "gen:types": "openapi-typescript ./openapi.json -o src/lib/openapi-types.ts",
     "gen:types:dev": "openapi-typescript http://localhost:5656/openapi.json -o src/lib/openapi-types.ts",

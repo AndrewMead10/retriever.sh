@@ -37,8 +37,8 @@ def seeded_user(session: Session):
         slug="tinkering",
         name="Tinkering",
         price_cents=500,
-        query_qps_limit=1,
-        ingest_qps_limit=1,
+        query_qps_limit=5,
+        ingest_qps_limit=5,
         project_limit=3,
         vector_limit=30_000,
         created_at=datetime.utcnow(),
@@ -59,9 +59,9 @@ def seeded_user(session: Session):
     bucket = RateLimitBucket(
         user_id=user.id,
         limit_type="query",
-        tokens=1.0,
+        tokens=plan.query_qps_limit,
         last_refill=datetime.utcnow(),
-        max_tokens=1,
+        max_tokens=plan.query_qps_limit,
     )
     session.add(bucket)
     session.commit()
@@ -69,14 +69,16 @@ def seeded_user(session: Session):
 
 
 def test_consume_rate_limit_blocks_when_exhausted(session: Session, seeded_user):
-    user, _ = seeded_user
+    user, plan = seeded_user
 
-    # First request should succeed and consume available token.
-    result = consume_rate_limit(session, user_id=user.id, limit_type="query")
-    assert result.remaining <= 1
+    # Consume the entire bucket.
+    result = None
+    for _ in range(plan.query_qps_limit):
+        result = consume_rate_limit(session, user_id=user.id, limit_type="query")
+    assert result is not None and result.remaining <= 1
     session.commit()
 
-    # Immediate second request should raise 429 due to no refill time.
+    # Immediate additional request should raise 429 due to no refill time.
     with pytest.raises(RateLimitExceeded):
         consume_rate_limit(session, user_id=user.id, limit_type="query")
 
