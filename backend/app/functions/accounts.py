@@ -9,15 +9,12 @@ from sqlalchemy.orm import Session
 
 from ..database.models import User, UserSubscription, UserUsage, Plan, Project
 
-PER_PROJECT_VECTOR_LIMITS: dict[str, int] = {
-    "tinkering": 10_000,
-    "building": 100_000,
-    "scale": 250_000,
-}
-
 
 def get_per_project_vector_limit(plan: Plan) -> int | None:
-    return PER_PROJECT_VECTOR_LIMITS.get(plan.slug)
+    limit = plan.vector_limit
+    if limit is None or limit < 0:
+        return None
+    return limit
 
 
 def get_user(session: Session, *, user_id: int) -> User:
@@ -40,13 +37,6 @@ def get_user_and_plan(session: Session, *, user_id: int) -> Tuple[User, Plan]:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription plan missing")
 
     return user, plan
-
-
-def get_vector_limit(session: Session, *, user: User, plan: Plan) -> int | None:
-    limit = plan.vector_limit
-    if limit is not None and limit < 0:
-        return None
-    return limit
 
 
 def get_project_limit(plan: Plan) -> int | None:
@@ -111,15 +101,6 @@ def ensure_vector_capacity(
     additional_vectors: int,
     project: Project | None = None,
 ) -> None:
-    limit = get_vector_limit(session, user=user, plan=plan)
-    if limit is not None:
-        usage = get_usage(session, user=user)
-        if usage.total_vectors + additional_vectors > limit:
-            raise HTTPException(
-                status.HTTP_402_PAYMENT_REQUIRED,
-                detail="Vector storage limit reached. Upgrade plan to increase capacity.",
-            )
-
     per_project_limit = get_per_project_vector_limit(plan)
     if per_project_limit is not None and project is not None:
         if project.vector_count + additional_vectors > per_project_limit:

@@ -263,8 +263,8 @@ function ProjectsPage() {
             <MetricCard
               title="VECTORS PER PROJECT"
               value={
-                plan?.per_project_vector_limit
-                  ? formatNumber(plan.per_project_vector_limit)
+                plan?.vector_limit
+                  ? formatNumber(plan.vector_limit)
                   : 'Unlimited'
               }
               help="Available per project"

@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { PricingSection, type PlanOption } from '@/components/pricing'
 import { api, useCreateCheckout, useProjects } from '@/lib/api'
-import { formatNumber, formatVectorLimit } from '@/utils/format'
+import { formatNumber } from '@/utils/format'
 
 export type BillingStatus = 'success' | 'canceled' | 'portal' | 'error'
 
@@ -88,14 +88,8 @@ export function BillingPage({ status }: { status?: BillingStatus }) {
   const plan = data?.plan
   const usage = data?.usage
 
-  const vectorLimit = usage?.vector_limit ?? null
+  const vectorLimit = plan?.vector_limit ?? usage?.vector_limit ?? null
   const projectLimit = usage?.project_limit ?? null
-  const vectorPercent = useMemo(() => {
-    if (!usage || !vectorLimit || vectorLimit <= 0) {
-      return 0
-    }
-    return Math.min(100, Math.round((usage.total_vectors / vectorLimit) * 100))
-  }, [usage, vectorLimit])
 
   const projectPercent = useMemo(() => {
     if (!usage || !projectLimit || projectLimit <= 0) {
@@ -246,9 +240,8 @@ export function BillingPage({ status }: { status?: BillingStatus }) {
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <UsagePanel
                   title="Vectors"
-                  primary={formatVectorLimit(usage.total_vectors, vectorLimit)}
-                  help={vectorLimit && vectorLimit > 0 ? 'Total across all projects' : 'Per project unlimited'}
-                  percent={vectorPercent}
+                  primary={vectorLimit && vectorLimit > 0 ? `${formatNumber(vectorLimit)} per project` : 'Unlimited per project'}
+                  help={`${formatNumber(usage.total_vectors)} stored across all projects`}
                 />
                 <UsagePanel
                   title="Projects"

@@ -28,7 +28,6 @@ export interface PlanInfo {
   ingest_qps_limit: number
   project_limit: number | null
   vector_limit: number | null
-  per_project_vector_limit?: number | null
 }
 
 export interface UsageInfo {

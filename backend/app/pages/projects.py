@@ -17,7 +17,6 @@ from ..functions.accounts import (
     get_per_project_vector_limit,
     get_project_limit,
     get_usage,
-    get_vector_limit,
 )
 from ..functions.api_keys import generate_api_key, hash_api_key
 from ..middleware.auth import get_current_user
@@ -41,7 +40,6 @@ class PlanInfo(BaseModel):
     ingest_qps_limit: int
     project_limit: Optional[int] = None
     vector_limit: Optional[int] = None
-    per_project_vector_limit: Optional[int] = None
 
 
 class UsageInfo(BaseModel):
@@ -118,7 +116,7 @@ def projects_onload(
     )
 
     needs_subscription = plan is None
-    vector_limit = get_vector_limit(db, user=user, plan=plan) if plan else None
+    vector_limit = get_per_project_vector_limit(plan) if plan else None
     project_limit = get_project_limit(plan) if plan else None
 
     return ProjectListResponse(
@@ -158,7 +156,6 @@ def projects_onload(
             ingest_qps_limit=plan.ingest_qps_limit,
             project_limit=project_limit,
             vector_limit=vector_limit,
-            per_project_vector_limit=get_per_project_vector_limit(plan),
         ) if plan else None,
         needs_subscription=needs_subscription,
     )

@@ -126,14 +126,14 @@ If Polar credentials are omitted the endpoints fail fast with HTTP 503 so develo
 
 Plan seeding defines the default caps:
 
-| Plan | Monthly Price | Query QPS | Ingest QPS | Projects | Vector cap (base) |
+| Plan | Monthly Price | Query QPS | Ingest QPS | Projects | Vector cap (per project) |
 | --- | --- | --- | --- | --- | --- |
-| Tinkering | $5 | 1 | 1 | 3 | 30,000 total (≈10k/project) |
-| Building | $20 | 10 | 10 | 20 | 2,000,000 total (≈100k/project) |
-| Scale | $50 | 100 | 100 | Unlimited | 250,000 per project |
+| Tinkering | $5 | 1 | 1 | 3 | 10,000 |
+| Building | $20 | 10 | 10 | 20 | 100,000 |
+| Scale | $50 | 100 | 100 | Unlimited | 250,000 |
 
 - QPS is enforced with token buckets stored in PostgreSQL (`rate_limit_buckets`).
-- Scale tier enforces a 250k vector cap per project; spin up more projects when you need additional capacity.
+- Every plan enforces its vector cap on a per-project basis using the `plans.vector_limit` value.
 - Vector/storage caps are defined per plan and scale only when you switch tiers.
 - Limit errors return 402/429 with an upsell message so the frontend can surface upgrade prompts.
 
