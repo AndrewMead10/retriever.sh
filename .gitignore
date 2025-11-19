@@ -79,3 +79,5 @@ data/
 # Monitoring data
 monitoring/grafana/data/
 monitoring/prometheus/data/
+
+models/

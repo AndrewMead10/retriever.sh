@@ -13,8 +13,8 @@ export function Navbar() {
   const { logout, isAuthenticated } = useAuth({
     fetchUser: !isAuthRoute,
   })
-  const { data: projectsData } = useProjects()
-  const needsSubscription = projectsData?.needs_subscription || false
+  const { data: projectsData } = useProjects({ enabled: isAuthenticated })
+  const needsSubscription = isAuthenticated && (projectsData?.needs_subscription || false)
 
   // Helper function to check if a link is active
   const isActive = (path: string) => {
@@ -51,35 +51,38 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             <Link
               to="/docs"
-              className={`text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 ${
+              className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
                 isActive('/docs')
                   ? 'text-foreground font-black'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              [ DOCS ]
+              <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ DOCS ]</span>
+              <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
             </Link>
             {!isAuthenticated || needsSubscription ? (
               <Link
                 to="/pricing"
-                className={`text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 ${
+                className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
                   isActive('/pricing')
                     ? 'text-foreground font-black'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                [ PRICING ]
+                <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ PRICING ]</span>
+                <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
               </Link>
             ) : null}
             <Link
               to="/connect"
-              className={`text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 ${
+              className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
                 isActive('/connect')
                   ? 'text-foreground font-black'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              [ CONNECT ]
+              <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ CONNECT ]</span>
+              <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
             </Link>
           </div>
 
@@ -88,24 +91,26 @@ export function Navbar() {
               <div className="hidden md:flex items-center space-x-4">
                 <Link
                   to="/projects"
-                  className={`text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 ${
+                  className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
                     isActive('/projects')
                       ? 'text-foreground font-black'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  [ PROJECTS ]
+                  <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ PROJECTS ]</span>
+                  <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
                 </Link>
                 <Link
                   to="/billing"
                   search={{ status: undefined }}
-                  className={`text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 ${
+                  className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
                     isActive('/billing')
                       ? 'text-foreground font-black'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  [ BILLING ]
+                  <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ BILLING ]</span>
+                  <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
                 </Link>
               </div>
 
@@ -129,15 +134,17 @@ export function Navbar() {
               <Link
                 to="/auth/login"
                 search={{ redirect: undefined }}
-                className="text-sm font-mono-jetbrains font-bold text-foreground hover:text-foreground px-4 py-2 sharp-corners border-2 border-foreground bg-card hover:bg-muted transition-all duration-200"
+                className="relative text-sm font-mono-jetbrains font-bold text-foreground hover:text-foreground px-4 py-2 sharp-corners border-2 border-foreground bg-card hover:bg-muted transition-all duration-200 overflow-hidden group"
               >
-                [ LOG IN ]
+                <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ LOG IN ]</span>
+                <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
               </Link>
               <Link
                 to="/auth/register"
-                className="text-sm font-mono-jetbrains font-bold text-background bg-foreground hover:bg-muted hover:text-foreground px-4 py-2 sharp-corners border-2 border-foreground transition-all duration-200"
+                className="relative text-sm font-mono-jetbrains font-bold text-background bg-foreground hover:bg-muted hover:text-foreground px-4 py-2 sharp-corners border-2 border-foreground transition-all duration-200 overflow-hidden group"
               >
-                [ SIGN UP ]
+                <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ SIGN UP ]</span>
+                <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
               </Link>
               <ThemeToggle />
             </div>

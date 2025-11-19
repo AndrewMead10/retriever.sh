@@ -5,7 +5,7 @@ Production-ready FastAPI + React implementation that turns the original `vector-
 ## Highlights
 
 - 🔐 **Self-service accounts** – email/password auth with JWT refresh, automatic account provisioning, and single-user billing ready for future org support.
-- 🧱 **Project isolation** – each project provisions its own pgvector-backed namespace while reusing the hybrid retrieval logic from `vector-lab-rag`.
+- 🧱 **Project isolation** – each project stores its documents in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
 - ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Tinkering, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
 - 💳 **Polar integration** – plan checkout, self-service portal hand-off, and webhook handlers to activate subscriptions and keep limits in sync.
 - 🌗 **Light/Dark UI** – React + TanStack Router frontend with Tailwind v4 theming, project dashboard, and one-click theme toggle.
@@ -42,6 +42,13 @@ pip install uv
 uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 5656
+```
+
+Run Vespa so hybrid retrieval has a live content cluster before ingesting data:
+
+```
+docker compose up -d vespa
+vespa deploy --wait 300 vespa
 ```
 
 On startup the app seeds the canonical plans (Tinkering / Building / Scale) and ensures rate-limit buckets exist for each account.
@@ -89,7 +96,7 @@ X-Project-Key: proj_...
 ```
 
 - Counts toward ingestion QPS and vector totals.
-- Enforces vector-cap before inserting into the project pgvector namespace.
+- Enforces vector-cap before inserting into the Vespa corpus and mirrors metadata in PostgreSQL (`project_documents`) so document IDs stay stable.
 
 #### Hybrid query
 
@@ -102,7 +109,7 @@ X-Project-Key: proj_...
 }
 ```
 
-Returns the weighted hybrid ranking identical to the original `vector-lab-rag` results. Requests consume the plan-specific query QPS bucket.
+Returns the weighted hybrid ranking powered by Vespa's `rag-hybrid` profile. Requests consume the plan-specific query QPS bucket.
 
 #### Delete vector
 
@@ -111,7 +118,7 @@ DELETE /api/rag/projects/{project_id}/vectors/{document_id}
 X-Project-Key: proj_...
 ```
 
-Removes the document from FTS, vector index, and decrements usage counters so customers can free capacity.
+Removes the document from Vespa (keyword + ANN indexes), soft-deletes it in PostgreSQL, and decrements usage counters so customers can free capacity.
 
 ### Billing Endpoints (auth required)
 
@@ -126,14 +133,14 @@ If Polar credentials are omitted the endpoints fail fast with HTTP 503 so develo
 
 Plan seeding defines the default caps:
 
-| Plan | Monthly Price | Query QPS | Ingest QPS | Projects | Vector cap (base) |
+| Plan | Monthly Price | Query QPS | Ingest QPS | Projects | Vector cap (per project) |
 | --- | --- | --- | --- | --- | --- |
-| Tinkering | $5 | 1 | 1 | 3 | 30,000 total (≈10k/project) |
-| Building | $20 | 10 | 10 | 20 | 2,000,000 total (≈100k/project) |
-| Scale | $50 | 100 | 100 | Unlimited | 250,000 per project |
+| Tinkering | $5 | 1 | 1 | 3 | 10,000 |
+| Building | $20 | 10 | 10 | 20 | 100,000 |
+| Scale | $50 | 100 | 100 | Unlimited | 250,000 |
 
 - QPS is enforced with token buckets stored in PostgreSQL (`rate_limit_buckets`).
-- Scale tier enforces a 250k vector cap per project; spin up more projects when you need additional capacity.
+- Every plan enforces its vector cap on a per-project basis using the `plans.vector_limit` value.
 - Vector/storage caps are defined per plan and scale only when you switch tiers.
 - Limit errors return 402/429 with an upsell message so the frontend can surface upgrade prompts.
 
@@ -157,7 +164,7 @@ The suite verifies token-bucket behaviour and vector-cap checks. Additonal integ
 ## Developer Notes
 
 - Plan records are seeded at startup via `seed_plans`; change defaults there for future migrations.
-- Project creation initialises a dedicated pgvector table (`rag_documents_proj_<id>`) for hybrid search.
+- Project creation only stores metadata in PostgreSQL; Vespa holds the actual content/embeddings and keys off `project_id` + the numeric document ID.
 - Polar webhooks rely on Checkout metadata containing `account_id`; ensure the checkout metadata set during session creation matches this expectation.
 - The vector embedding model downloads on-demand using `huggingface_hub` and `llama-cpp-python`. Provide `RAG_HF_TOKEN` if the repo is gated.
 

@@ -37,10 +37,10 @@ def seeded_user(session: Session):
         slug="tinkering",
         name="Tinkering",
         price_cents=500,
-        query_qps_limit=1,
-        ingest_qps_limit=1,
+        query_qps_limit=5,
+        ingest_qps_limit=5,
         project_limit=3,
-        vector_limit=30_000,
+        vector_limit=10_000,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -59,9 +59,9 @@ def seeded_user(session: Session):
     bucket = RateLimitBucket(
         user_id=user.id,
         limit_type="query",
-        tokens=1.0,
+        tokens=plan.query_qps_limit,
         last_refill=datetime.utcnow(),
-        max_tokens=1,
+        max_tokens=plan.query_qps_limit,
     )
     session.add(bucket)
     session.commit()
@@ -69,14 +69,16 @@ def seeded_user(session: Session):
 
 
 def test_consume_rate_limit_blocks_when_exhausted(session: Session, seeded_user):
-    user, _ = seeded_user
+    user, plan = seeded_user
 
-    # First request should succeed and consume available token.
-    result = consume_rate_limit(session, user_id=user.id, limit_type="query")
-    assert result.remaining <= 1
+    # Consume the entire bucket.
+    result = None
+    for _ in range(plan.query_qps_limit):
+        result = consume_rate_limit(session, user_id=user.id, limit_type="query")
+    assert result is not None and result.remaining <= 1
     session.commit()
 
-    # Immediate second request should raise 429 due to no refill time.
+    # Immediate additional request should raise 429 due to no refill time.
     with pytest.raises(RateLimitExceeded):
         consume_rate_limit(session, user_id=user.id, limit_type="query")
 
@@ -91,12 +93,49 @@ def test_usage_counters_increment_and_vector_capacity(session: Session, seeded_u
     assert usage.total_ingest_requests == 1
     assert usage.total_vectors == 500
 
-    # Filling up to the vector limit should allow but adding one more should fail.
-    usage.total_vectors = plan.vector_limit
+    project = Project(
+        user_id=user.id,
+        name="Capacity Test",
+        description=None,
+        slug="capacity-test",
+        embedding_provider="llama.cpp",
+        embedding_model="model",
+        embedding_model_repo=None,
+        embedding_model_file=None,
+        embedding_dim=768,
+        hybrid_weight_vector=0.5,
+        hybrid_weight_text=0.5,
+        top_k_default=5,
+        vector_search_k=20,
+        vector_store_path="proj_capacity",
+        vector_count=plan.vector_limit - 1,
+        ingest_api_key_hash="hash",
+        active=True,
+    )
+    session.add(project)
+    session.flush()
+
+    # Should allow ingesting within the per-project limit
+    ensure_vector_capacity(
+        session,
+        user=user,
+        plan=plan,
+        additional_vectors=1,
+        project=project,
+    )
+
+    project.vector_count = plan.vector_limit
+    session.add(project)
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        ensure_vector_capacity(session, user=user, plan=plan, additional_vectors=1)
+        ensure_vector_capacity(
+            session,
+            user=user,
+            plan=plan,
+            additional_vectors=1,
+            project=project,
+        )
 
     assert exc.value.status_code == 402
 
@@ -109,7 +148,7 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
         query_qps_limit=100,
         ingest_qps_limit=100,
         project_limit=-1,
-        vector_limit=-1,
+        vector_limit=250_000,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )

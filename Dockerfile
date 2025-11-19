@@ -63,7 +63,7 @@ WORKDIR /app/backend
 RUN uv sync
 
 # Copy built frontend files into FastAPI static dir
-COPY --from=frontend-builder /app/frontend/dist ./app/static
+COPY --from=frontend-builder /app/frontend/dist /app/backend/app/static
 
 # Create data directory
 RUN mkdir -p /app/data

@@ -1,7 +1,7 @@
 """add email verification to users
 
 Revision ID: 0004_add_email_verification
-Revises: b9a2dfa6460d
+Revises: 0003_postgres_vector_store
 Create Date: 2025-11-05 00:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0004_add_email_verification"
-down_revision = "b9a2dfa6460d"
+down_revision = "0003_postgres_vector_store"
 branch_labels = None
 depends_on = None
 

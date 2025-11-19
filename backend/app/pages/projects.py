@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from typing import List, Optional
 
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..database.models import Project
+from ..database.models import Project, ProjectDocument
 from ..functions.accounts import (
     ensure_project_capacity,
     get_user,
@@ -17,7 +18,6 @@ from ..functions.accounts import (
     get_per_project_vector_limit,
     get_project_limit,
     get_usage,
-    get_vector_limit,
 )
 from ..functions.api_keys import generate_api_key, hash_api_key
 from ..middleware.auth import get_current_user
@@ -41,7 +41,6 @@ class PlanInfo(BaseModel):
     ingest_qps_limit: int
     project_limit: Optional[int] = None
     vector_limit: Optional[int] = None
-    per_project_vector_limit: Optional[int] = None
 
 
 class UsageInfo(BaseModel):
@@ -97,8 +96,17 @@ class ProjectCreateResponse(BaseModel):
     ingest_api_key: str
 
 
+class ProjectRotateKeyRequest(BaseModel):
+    project_id: int
+
+
+class ProjectApiKeyResponse(BaseModel):
+    project_id: int
+    ingest_api_key: str
+
+
 def _vector_table_name(project_id: int) -> str:
-    return f"rag_documents_proj_{project_id}"
+    return f"vespa_proj_{project_id}"
 
 
 @router.get("/onload", response_model=ProjectListResponse)
@@ -118,7 +126,7 @@ def projects_onload(
     )
 
     needs_subscription = plan is None
-    vector_limit = get_vector_limit(db, user=user, plan=plan) if plan else None
+    vector_limit = get_per_project_vector_limit(plan) if plan else None
     project_limit = get_project_limit(plan) if plan else None
 
     return ProjectListResponse(
@@ -158,7 +166,6 @@ def projects_onload(
             ingest_qps_limit=plan.ingest_qps_limit,
             project_limit=project_limit,
             vector_limit=vector_limit,
-            per_project_vector_limit=get_per_project_vector_limit(plan),
         ) if plan else None,
         needs_subscription=needs_subscription,
     )
@@ -219,9 +226,6 @@ def create_project(
     db.commit()
     db.refresh(project)
 
-    # Ensure the vector store exists and is initialised.
-    vector_store_registry.get_database(project)
-
     project_summary = ProjectSummary(
         id=project.id,
         name=project.name,
@@ -241,6 +245,32 @@ def create_project(
     )
 
     return ProjectCreateResponse(project=project_summary, ingest_api_key=ingest_key_plain)
+
+
+@router.post("/rotate-api-key", response_model=ProjectApiKeyResponse)
+def rotate_project_api_key(
+    payload: ProjectRotateKeyRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    user = get_user(db, user_id=current_user.id)
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == payload.project_id, Project.user_id == user.id, Project.active == True)
+        .first()
+    )
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    ingest_key_plain = generate_api_key(prefix="proj")
+    project.ingest_api_key_hash = hash_api_key(ingest_key_plain)
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    return ProjectApiKeyResponse(project_id=project.id, ingest_api_key=ingest_key_plain)
 
 
 class ProjectDeleteRequest(BaseModel):
@@ -270,21 +300,20 @@ def delete_project(
     db.add(project)
     db.commit()
 
-    # Mark all vectors in the project's table as inactive
-    try:
-        vector_store = vector_store_registry.get_database(project)
-        if vector_store.is_ready():
-            from sqlalchemy import text as sql_text
-            session = db
-            session.execute(
-                sql_text(f"UPDATE {project.vector_store_path} SET active = 0 WHERE project_id = :project_id"),
-                {"project_id": project.id}
-            )
-            session.commit()
-    except Exception as e:
-        # Log the error but don't fail the delete operation
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.exception(f"Failed to mark vectors as inactive for project {project.id}: {e}")
+    documents = (
+        db.query(ProjectDocument)
+        .filter(ProjectDocument.project_id == project.id, ProjectDocument.active == True)
+        .all()
+    )
+    vector_store = vector_store_registry.get_vector_store(project)
+    for doc in documents:
+        try:
+            vector_store.delete_document(doc)
+        except Exception:
+            logger = logging.getLogger(__name__)
+            logger.exception("Failed to delete Vespa document %s", doc.id)
+        doc.active = False
+        db.add(doc)
+    db.commit()
 
     return {"detail": "Project deleted successfully"}

@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -24,13 +23,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { api, useCreateProject, useDeleteProject, useProjects } from '@/lib/api'
+import { api, useCreateProject, useDeleteProject, useProjects, useRotateProjectKey } from '@/lib/api'
 import type { ProjectCreatePayload } from '@/lib/types'
 import { queryClient } from '@/routes/__root'
-import { formatNumber, formatVectorLimit } from '@/utils/format'
+import { formatNumber } from '@/utils/format'
+import { hasActiveSession } from '@/lib/session'
 
 export const Route = createFileRoute('/projects/')({
   beforeLoad: async () => {
+    if (!hasActiveSession()) {
+      throw redirect({ to: '/auth/login', search: { redirect: undefined } })
+    }
     try {
       await queryClient.ensureQueryData({
         queryKey: ['user'],
@@ -47,10 +50,18 @@ export const Route = createFileRoute('/projects/')({
   component: ProjectsPage,
 })
 
+type ApiKeyRevealReason = 'create' | 'rotate'
+
+type ApiKeyModalState =
+  | { open: false }
+  | { open: true; mode: 'confirm'; projectId: number; projectName: string }
+  | { open: true; mode: 'reveal'; apiKey: string; projectName: string; reason: ApiKeyRevealReason }
+
 function ProjectsPage() {
   const { data, isLoading, error } = useProjects()
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
+  const rotateProjectKey = useRotateProjectKey()
   const [showCreate, setShowCreate] = useState(false)
   const [formState, setFormState] = useState<ProjectCreatePayload>({
     name: '',
@@ -58,6 +69,7 @@ function ProjectsPage() {
   })
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; projectId: number; projectName: string } | null>(null)
   const [deleteTypedName, setDeleteTypedName] = useState('')
+  const [apiKeyModal, setApiKeyModal] = useState<ApiKeyModalState>({ open: false })
 
   const portal = useMutation({
     mutationFn: api.billing.portal,
@@ -69,6 +81,59 @@ function ProjectsPage() {
     },
   })
 
+  const copyApiKey = async (
+    apiKey: string,
+    messages: { success?: string; fallback?: string } = {}
+  ) => {
+    try {
+      await navigator.clipboard.writeText(apiKey)
+      if (messages.success) {
+        toast.success(messages.success)
+      }
+    } catch {
+      if (messages.fallback) {
+        toast.success(messages.fallback)
+      }
+      toast('API Key', { description: apiKey })
+    }
+  }
+
+  const openApiKeyReveal = (apiKey: string, projectName: string, reason: ApiKeyRevealReason) => {
+    setApiKeyModal({ open: true, mode: 'reveal', apiKey, projectName, reason })
+  }
+
+  const closeApiKeyModal = () => {
+    if (rotateProjectKey.isPending && apiKeyModal.open && apiKeyModal.mode === 'confirm') {
+      return
+    }
+    setApiKeyModal({ open: false })
+  }
+
+  const startRotateApiKey = (projectId: number, projectName: string) => {
+    setApiKeyModal({ open: true, mode: 'confirm', projectId, projectName })
+  }
+
+  const confirmRotateApiKey = async () => {
+    if (!apiKeyModal.open || apiKeyModal.mode !== 'confirm') {
+      return
+    }
+    const { projectId, projectName } = apiKeyModal
+    try {
+      const result = await rotateProjectKey.mutateAsync(projectId)
+      await copyApiKey(result.ingest_api_key, {
+        success: 'New API key copied to clipboard. Previous key is no longer valid.',
+        fallback: 'New API key ready. Previous key is no longer valid.',
+      })
+      openApiKeyReveal(result.ingest_api_key, projectName, 'rotate')
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to rotate API key')
+    }
+  }
+
+  const handleModalCopy = (apiKey: string) => {
+    void copyApiKey(apiKey, { success: 'API key copied to clipboard.' })
+  }
+
   const handleCreateProject = async () => {
     if (data?.needs_subscription) {
       toast.error('Start a subscription to create projects.')
@@ -78,12 +143,11 @@ function ProjectsPage() {
       const result = await createProject.mutateAsync(formState)
       setShowCreate(false)
       setFormState({ name: '', description: '' })
-      toast.success('Project created. API key copied to clipboard.')
-      try {
-        await navigator.clipboard.writeText(result.ingest_api_key)
-      } catch {
-        toast('API Key', { description: result.ingest_api_key })
-      }
+      await copyApiKey(result.ingest_api_key, {
+        success: 'Project created. API key copied to clipboard.',
+        fallback: 'Project created. Copy the API key below.',
+      })
+      openApiKeyReveal(result.ingest_api_key, result.project.name, 'create')
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create project')
     }
@@ -124,19 +188,10 @@ function ProjectsPage() {
   const needsSubscription = data?.needs_subscription ?? false
   const usage = data?.usage
   const projects = data?.projects ?? []
-  const vectorLimit = usage?.vector_limit ?? null
-  const vectorPercent = vectorLimit
-    ? Math.min(100, Math.round((usage!.total_vectors / vectorLimit) * 100))
-    : 0
   const projectLimit = usage?.project_limit ?? null
   const projectPercent = projectLimit
     ? Math.min(100, Math.round((usage!.project_count / projectLimit) * 100))
     : 0
-  const approxVectorsPerProject =
-    plan?.per_project_vector_limit ??
-    (plan && plan.project_limit && plan.project_limit > 0 && vectorLimit
-      ? Math.floor(vectorLimit / plan.project_limit)
-      : null)
 
   return (
     <div className="min-h-screen bg-background dither-bg font-mono-jetbrains">
@@ -158,50 +213,52 @@ function ProjectsPage() {
                 {needsSubscription ? 'SUBSCRIPTION REQUIRED' : '[ CREATE PROJECT ]'}
               </Button>
             </DialogTrigger>
-          <DialogContent className="bg-card border-2 border-foreground dither-border sharp-corners">
-            <DialogHeader>
-              <DialogTitle className="font-bold dither-text">NEW PROJECT</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="project-name" className="font-bold text-xs">// NAME</Label>
-                <Input
-                  id="project-name"
-                  placeholder="My App"
-                  value={formState.name}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                  className="bg-background border border-foreground dither-border sharp-corners"
-                />
+          <DialogContent className="bg-transparent border-none p-0 [&_[data-slot=dialog-close]]:top-6 [&_[data-slot=dialog-close]]:right-6">
+            <div className="bg-card border-2 border-foreground dither-border sharp-corners p-6">
+              <DialogHeader>
+                <DialogTitle className="font-bold dither-text">NEW PROJECT</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="project-name" className="font-bold text-xs">// NAME</Label>
+                  <Input
+                    id="project-name"
+                    placeholder="My App"
+                    value={formState.name}
+                    onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+                    className="bg-background border border-foreground dither-border sharp-corners"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-description" className="font-bold text-xs">// DESCRIPTION (optional)</Label>
+                  <Textarea
+                    id="project-description"
+                    rows={3}
+                    value={formState.description ?? ''}
+                    onChange={(event) =>
+                      setFormState((prev) => ({ ...prev, description: event.target.value }))
+                    }
+                    className="bg-background border border-foreground dither-border sharp-corners"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-description" className="font-bold text-xs">// DESCRIPTION (optional)</Label>
-                <Textarea
-                  id="project-description"
-                  rows={3}
-                  value={formState.description ?? ''}
-                  onChange={(event) =>
-                    setFormState((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                  className="bg-background border border-foreground dither-border sharp-corners"
-                />
-              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreate(false)}
+                  className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+                >
+                  [ CANCEL ]
+                </Button>
+                <Button
+                  onClick={handleCreateProject}
+                  disabled={!formState.name || createProject.isPending || data?.needs_subscription}
+                  className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text"
+                >
+                  {createProject.isPending ? 'CREATING...' : '[ CREATE ]'}
+                </Button>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowCreate(false)}
-                className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
-              >
-                [ CANCEL ]
-              </Button>
-              <Button
-                onClick={handleCreateProject}
-                disabled={!formState.name || createProject.isPending || data?.needs_subscription}
-                className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text"
-              >
-                {createProject.isPending ? 'CREATING...' : '[ CREATE ]'}
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -241,13 +298,13 @@ function ProjectsPage() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              {plan.slug === 'tinkering' && (
+              {plan.slug !== 'scale' && (
                 <Button
                   asChild
                   className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text px-4 py-2"
                 >
                   <Link to="/pricing">
-                    [ CHOOSE PLAN ]
+                    [ UPGRADE PLAN ]
                   </Link>
                 </Button>
               )}
@@ -261,35 +318,19 @@ function ProjectsPage() {
                   [ BILLING PORTAL ]
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                asChild
-                className="bg-card border border-foreground dither-border sharp-corners font-bold hover:bg-muted transition-all duration-200"
-              >
-                <Link to="/pricing">
-                  [ VIEW SCALE PLAN ]
-                </Link>
-              </Button>
-            </div>
+              </div>
           </CardHeader>
           <CardContent className="grid gap-6 md:grid-cols-3">
-                    <MetricCard title="QUERY QPS" value={`${plan.query_qps_limit}`} help="per second" />
-            <MetricCard title="INGEST QPS" value={`${plan.ingest_qps_limit}`} help="per second" />
+            <MetricCard title="QUERY QPS" value={`${plan.query_qps_limit}`} help="per second" />
             <MetricCard
-              title="VECTORS"
-              value={formatVectorLimit(usage.total_vectors, vectorLimit)}
-              help={
-                approxVectorsPerProject
-                  ? `≈ ${formatNumber(approxVectorsPerProject)} per project`
-                  : vectorLimit === null
-                    ? 'Per project unlimited'
-                    : undefined
+              title="VECTORS PER PROJECT"
+              value={
+                plan?.vector_limit
+                  ? formatNumber(plan.vector_limit)
+                  : 'Unlimited'
               }
-            >
-              {vectorLimit && (
-                <Progress value={vectorPercent} className="mt-2" />
-              )}
-            </MetricCard>
+              help="Available per project"
+            />
             <MetricCard title="PROJECTS" value={`${usage.project_count}`}>
               {projectLimit && (
                 <Progress value={projectPercent} className="mt-2" />
@@ -334,22 +375,29 @@ function ProjectsPage() {
                         {project.description && (
                           <span className="text-xs text-muted-foreground font-mono-jetbrains">{project.description}</span>
                         )}
-                        <Badge variant="outline" className="mt-1 w-fit bg-background border border-foreground dither-border sharp-corners">
-                          ID #{project.id}
-                        </Badge>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono-jetbrains">{formatNumber(project.vector_count)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteProject(project.id, project.name)}
-                        disabled={deleteProject.isPending}
-                        className="bg-red-600 text-white border-2 border-red-600 sharp-corners font-bold hover:bg-red-700 hover:border-red-700 transition-all duration-200"
-                      >
-                        [ DELETE ]
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => startRotateApiKey(project.id, project.name)}
+                          disabled={rotateProjectKey.isPending && rotateProjectKey.variables === project.id}
+                          className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {rotateProjectKey.isPending && rotateProjectKey.variables === project.id ? 'GENERATING...' : '[ NEW API KEY ]'}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteProject(project.id, project.name)}
+                          disabled={deleteProject.isPending}
+                          className="bg-red-600 text-white border-2 border-red-600 sharp-corners font-bold hover:bg-red-700 hover:border-red-700 transition-all duration-200"
+                        >
+                          [ DELETE ]
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -361,46 +409,56 @@ function ProjectsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm?.show ?? false} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
-        <DialogContent className="bg-card border-2 border-red-600 dither-border sharp-corners">
-          <DialogHeader>
-            <DialogTitle className="font-bold dither-text text-red-600">DELETE PROJECT</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm font-mono-jetbrains">
-              This action cannot be undone. This will permanently delete the project and all associated vectors.
-            </p>
-            <p className="text-sm font-mono-jetbrains font-bold">
-              Please type <span className="bg-red-100 dark:bg-red-900/30 px-1">{deleteConfirm?.projectName}</span> to confirm:
-            </p>
-            <Input
-              placeholder="Type project name here"
-              value={deleteTypedName}
-              onChange={(e) => setDeleteTypedName(e.target.value)}
-              className="bg-background border-2 border-foreground dither-border sharp-corners font-mono-jetbrains"
-              autoFocus
-            />
+        <DialogContent className="bg-transparent border-none p-0 [&_[data-slot=dialog-close]]:top-6 [&_[data-slot=dialog-close]]:right-6">
+          <div className="bg-card border-2 border-red-600 dither-border sharp-corners p-6">
+            <DialogHeader>
+              <DialogTitle className="font-bold dither-text text-red-600">DELETE PROJECT</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p className="text-sm font-mono-jetbrains">
+                This action cannot be undone. This will permanently delete the project and all associated vectors.
+              </p>
+              <p className="text-sm font-mono-jetbrains font-bold">
+                Please type <span className="bg-red-100 dark:bg-red-900/30 px-1">{deleteConfirm?.projectName}</span> to confirm:
+              </p>
+              <Input
+                placeholder="Type project name here"
+                value={deleteTypedName}
+                onChange={(e) => setDeleteTypedName(e.target.value)}
+                className="bg-background border-2 border-foreground dither-border sharp-corners font-mono-jetbrains"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteConfirm(null)
+                  setDeleteTypedName('')
+                }}
+                className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+              >
+                [ CANCEL ]
+              </Button>
+              <Button
+                onClick={confirmDeleteProject}
+                disabled={deleteTypedName !== deleteConfirm?.projectName || deleteProject.isPending}
+                className="bg-red-600 text-white border-2 border-red-600 sharp-corners font-bold hover:bg-red-700 hover:border-red-700 transition-all duration-200 dither-text disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteProject.isPending ? 'DELETING...' : '[ DELETE PROJECT ]'}
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteConfirm(null)
-                setDeleteTypedName('')
-              }}
-              className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
-            >
-              [ CANCEL ]
-            </Button>
-            <Button
-              onClick={confirmDeleteProject}
-              disabled={deleteTypedName !== deleteConfirm?.projectName || deleteProject.isPending}
-              className="bg-red-600 text-white border-2 border-red-600 sharp-corners font-bold hover:bg-red-700 hover:border-red-700 transition-all duration-200 dither-text disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {deleteProject.isPending ? 'DELETING...' : '[ DELETE PROJECT ]'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ApiKeyDialog
+        state={apiKeyModal}
+        onClose={closeApiKeyModal}
+        onConfirmRotate={confirmRotateApiKey}
+        onCopy={handleModalCopy}
+        isSubmitting={rotateProjectKey.isPending}
+      />
       </div>
     </div>
   )
@@ -421,5 +479,113 @@ function MetricCard({ title, value, help, children }: MetricCardProps) {
       {help && <div className="text-xs text-muted-foreground mt-1 font-mono-jetbrains">{help}</div>}
       {children}
     </div>
+  )
+}
+
+interface ApiKeyDialogProps {
+  state: ApiKeyModalState
+  onClose: () => void
+  onConfirmRotate: () => void
+  onCopy: (apiKey: string) => void
+  isSubmitting: boolean
+}
+
+function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, isSubmitting }: ApiKeyDialogProps) {
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      if (state.open && state.mode === 'confirm' && isSubmitting) {
+        return
+      }
+      onClose()
+    }
+  }
+
+  const confirmState = state.open && state.mode === 'confirm' ? state : null
+  const revealState = state.open && state.mode === 'reveal' ? state : null
+
+  return (
+    <Dialog open={state.open} onOpenChange={handleOpenChange}>
+      {state.open && (
+        <DialogContent className="bg-transparent border-none p-0 [&_[data-slot=dialog-close]]:top-6 [&_[data-slot=dialog-close]]:right-6">
+          <div
+            className={`bg-card border-2 ${confirmState ? 'border-amber-500' : 'border-foreground'} dither-border sharp-corners p-6`}
+          >
+            {confirmState && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-bold dither-text text-amber-500">REPLACE PROJECT API KEY</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2 text-sm font-mono-jetbrains">
+                  <p>
+                    You're about to generate a new API key for <span className="font-bold">{confirmState.projectName}</span>.
+                  </p>
+                  <p className="text-red-600 font-bold">
+                    The existing key will stop working immediately. Update any ingest clients before continuing.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This action cannot be undone. You'll receive the new key right after you confirm.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                    className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+                  >
+                    [ CANCEL ]
+                  </Button>
+                  <Button
+                    onClick={onConfirmRotate}
+                    disabled={isSubmitting}
+                    className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'GENERATING...' : '[ YES, REPLACE IT ]'}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+
+            {revealState && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="font-bold dither-text">
+                    {revealState.reason === 'create' ? 'PROJECT API KEY' : 'NEW API KEY ACTIVE'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <p className="text-sm font-mono-jetbrains">
+                    {revealState.reason === 'create'
+                      ? `This is the only time we will display the ingest API key for ${revealState.projectName}. Copy it and store it securely.`
+                      : `The previous API key for ${revealState.projectName} has been revoked. Update your ingest clients with the key below immediately.`}
+                  </p>
+                  <div className="bg-background border-2 border-foreground dither-border sharp-corners flex items-center justify-between gap-3 px-4 py-3 font-mono-jetbrains text-sm break-all">
+                    <span className="truncate">{revealState.apiKey}</span>
+                    <Button
+                      size="sm"
+                      onClick={() => onCopy(revealState.apiKey)}
+                      className="bg-foreground text-background sharp-corners font-bold hover:bg-muted hover:text-foreground"
+                    >
+                      [ COPY ]
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono-jetbrains">
+                    Safeguard this key. You can rotate it anytime from the Projects table if it is ever exposed.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={onClose}
+                    className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground"
+                  >
+                    [ CLOSE ]
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      )}
+    </Dialog>
   )
 }

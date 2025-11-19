@@ -28,7 +28,6 @@ export interface PlanInfo {
   ingest_qps_limit: number
   project_limit: number | null
   vector_limit: number | null
-  per_project_vector_limit?: number | null
 }
 
 export interface UsageInfo {
@@ -81,5 +80,10 @@ export interface ProjectCreatePayload {
 
 export interface ProjectCreateResponse {
   project: ProjectSummary
+  ingest_api_key: string
+}
+
+export interface ProjectRotateKeyResponse {
+  project_id: number
   ingest_api_key: string
 }

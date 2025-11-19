@@ -1,0 +1,63 @@
+schema rag_document {
+  document rag_document {
+    field project_id type int {
+      indexing: attribute | summary
+    }
+    field document_id type int {
+      indexing: attribute | summary
+    }
+    field title type string {
+      indexing: summary | index
+      match: text
+      stemming: best
+    }
+    field content type string {
+      indexing: summary | index
+      match: text
+      stemming: best
+    }
+    field url type string {
+      indexing: attribute | summary
+    }
+    field published_at type string {
+      indexing: attribute | summary
+    }
+    field created_at type string {
+      indexing: attribute | summary
+    }
+    field active type bool {
+      indexing: attribute | summary
+    }
+    field embedding type tensor<float>(x[768]) {
+      indexing: attribute | index | summary
+      attribute {
+        distance-metric: angular
+      }
+      index {
+        hnsw {
+          max-links-per-node: 16
+          neighbors-to-explore-at-insert: 200
+        }
+      }
+    }
+  }
+
+  fieldset default {
+    fields: title, content
+  }
+
+  rank-profile rag-hybrid inherits default {
+    inputs {
+      query(query_embedding) tensor<float>(x[768])
+      query(weight_vector) double
+      query(weight_text) double
+      query(fts) string
+    }
+    function text_score() {
+      expression: bm25(title) + bm25(content)
+    }
+    first-phase {
+      expression: (query(weight_vector) * closeness(embedding)) + (query(weight_text) * text_score())
+    }
+  }
+}

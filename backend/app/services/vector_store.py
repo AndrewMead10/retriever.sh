@@ -4,12 +4,11 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
-import re
 
 from ..config import settings
-from ..database import engine
 from ..database.models import Project
-from .vectorlab import Database, EmbeddingConfig, EmbeddingService
+from .vectorlab import EmbeddingConfig, EmbeddingService
+from .vespa_store import VespaClient, VespaVectorStore
 
 
 @dataclass(frozen=True)
@@ -21,34 +20,27 @@ class EmbeddingKey:
 
 
 class VectorStoreRegistry:
-    """Caches project-specific PostgreSQL vector stores and shared embedding services."""
+    """Caches Vespa vector stores and shared embedding services."""
 
     def __init__(self) -> None:
-        self._dbs: Dict[int, Database] = {}
+        self._stores: Dict[int, VespaVectorStore] = {}
         self._embed_services: Dict[EmbeddingKey, EmbeddingService] = {}
         self._lock = threading.RLock()
-
-    def _build_db(self, project: Project) -> Database:
-        if not project.vector_store_path:
-            raise ValueError("Project is missing vector store identifier")
-        if not re.fullmatch(r"[a-z0-9_]+", project.vector_store_path):
-            raise ValueError(f"Invalid vector store identifier: {project.vector_store_path}")
-        database = Database(
-            engine=engine,
-            table_name=project.vector_store_path,
-            project_id=project.id,
-            embed_dim=project.embedding_dim,
+        self._client = VespaClient(
+            endpoint=settings.vespa_endpoint,
+            namespace=settings.vespa_namespace,
+            document_type=settings.vespa_document_type,
+            rank_profile=settings.vespa_rank_profile,
+            timeout=settings.vespa_timeout_seconds,
         )
-        database.connect()
-        return database
 
-    def get_database(self, project: Project) -> Database:
+    def get_vector_store(self, project: Project) -> VespaVectorStore:
         with self._lock:
-            db = self._dbs.get(project.id)
-            if db is None:
-                db = self._build_db(project)
-                self._dbs[project.id] = db
-            return db
+            store = self._stores.get(project.id)
+            if store is None:
+                store = VespaVectorStore(project=project, client=self._client)
+                self._stores[project.id] = store
+            return store
 
     def _embedding_config(self, project: Project) -> EmbeddingConfig:
         model_repo = project.embedding_model_repo or settings.rag_model_repo

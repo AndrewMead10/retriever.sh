@@ -147,6 +147,7 @@ class Project(Base, AuditMixin):
 
     user = relationship("User", back_populates="projects")
     api_keys = relationship("ProjectApiKey", back_populates="project", cascade="all, delete-orphan")
+    documents = relationship("ProjectDocument", back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectApiKey(Base, AuditMixin):
@@ -161,3 +162,18 @@ class ProjectApiKey(Base, AuditMixin):
     revoked = Column(Boolean, nullable=False, default=False)
 
     project = relationship("Project", back_populates="api_keys")
+
+
+class ProjectDocument(Base, AuditMixin):
+    __tablename__ = "project_documents"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    vespa_document_id = Column(String, nullable=False, unique=True)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    url = Column(String, nullable=False)
+    published_at = Column(String, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+    project = relationship("Project", back_populates="documents")

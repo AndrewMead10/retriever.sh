@@ -1,7 +1,7 @@
 """add active columns to projects and vector tables
 
 Revision ID: 0005_add_active_columns
-Revises: 0004_add_email_verification
+Revises: 0004_remove_vector_topups
 Create Date: 2025-11-08 00:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0005_add_active_columns"
-down_revision = "0004_add_email_verification"
+down_revision = "0004_remove_vector_topups"
 branch_labels = None
 depends_on = None
 

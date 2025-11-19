@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Response, HTTPException
 from jose import jwt, JWTError
-from ...middleware.auth import create_access_token, verify_token
 from ...config import settings
+from ...middleware.auth import create_access_token, set_access_token_cookie, set_session_indicator_cookie, verify_token
 
 router = APIRouter()
 
@@ -25,12 +25,7 @@ async def refresh_token(request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     
     new_access_token = create_access_token(user_id)
-    response.set_cookie(
-        "access_token", 
-        new_access_token, 
-        httponly=True, 
-        max_age=settings.access_token_ttl_minutes * 60,
-        samesite="lax"
-    )
+    set_access_token_cookie(response, new_access_token)
+    set_session_indicator_cookie(response)
     
     return {"success": True}

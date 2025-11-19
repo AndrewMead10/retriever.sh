@@ -11,6 +11,9 @@ from ..database.shared import get_user_by_id
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ALGORITHM = "HS256"
+SESSION_COOKIE_NAME = "session_present"
+ACCESS_COOKIE_NAME = "access_token"
+REFRESH_COOKIE_NAME = "refresh_token"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -41,33 +44,72 @@ def create_refresh_token(user_id: int) -> str:
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=ALGORITHM)
 
 
+def _cookie_secure_flag() -> bool:
+    secure_cookie = bool(getattr(settings, "cookie_secure", False))
+    if not secure_cookie:
+        secure_cookie = settings.frontend_url.startswith("https://")
+    return secure_cookie
+
+
+def _cookie_common_kwargs() -> dict:
+    return {
+        "samesite": "lax",
+        "secure": _cookie_secure_flag(),
+        "path": "/",
+    }
+
+
 def set_auth_cookies(response: Response, user_id: int) -> None:
     """Set auth cookies for the provided user"""
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
-    secure_cookie = bool(getattr(settings, "cookie_secure", False))
-    if not secure_cookie:
-        secure_cookie = settings.frontend_url.startswith("https://")
+    cookie_kwargs = _cookie_common_kwargs()
 
+    _set_access_token_cookie(response, access_token, cookie_kwargs)
     response.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        max_age=settings.access_token_ttl_minutes * 60,
-        samesite="lax",
-        secure=secure_cookie,
-        path="/",
-    )
-    response.set_cookie(
-        "refresh_token",
+        REFRESH_COOKIE_NAME,
         refresh_token,
         httponly=True,
         max_age=settings.refresh_token_ttl_days * 24 * 60 * 60,
-        samesite="lax",
-        secure=secure_cookie,
-        path="/",
+        **cookie_kwargs,
     )
+    set_session_indicator_cookie(response)
+
+
+def set_access_token_cookie(response: Response, token: str) -> None:
+    """Expose access token cookie updates outside of login flows."""
+    _set_access_token_cookie(response, token, _cookie_common_kwargs())
+
+
+def _set_access_token_cookie(response: Response, token: str, cookie_kwargs: dict) -> None:
+    response.set_cookie(
+        ACCESS_COOKIE_NAME,
+        token,
+        httponly=True,
+        max_age=settings.access_token_ttl_minutes * 60,
+        **cookie_kwargs,
+    )
+
+
+def set_session_indicator_cookie(response: Response) -> None:
+    """Expose a non-HTTPOnly cookie so the frontend can detect active sessions."""
+    cookie_kwargs = _cookie_common_kwargs()
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        "1",
+        httponly=False,
+        max_age=settings.refresh_token_ttl_days * 24 * 60 * 60,
+        **cookie_kwargs,
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    """Remove auth cookies, including the public session indicator."""
+    cookie_kwargs = _cookie_common_kwargs()
+    response.delete_cookie(ACCESS_COOKIE_NAME, **cookie_kwargs)
+    response.delete_cookie(REFRESH_COOKIE_NAME, **cookie_kwargs)
+    response.delete_cookie(SESSION_COOKIE_NAME, **cookie_kwargs)
 
 
 def verify_token(token: str) -> bool:

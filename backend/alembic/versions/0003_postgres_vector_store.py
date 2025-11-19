@@ -5,7 +5,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0003_postgres_vector_store"
-down_revision = "0002_account_plan_structures"
+down_revision = "0003_replace_stripe_with_polar"
 branch_labels = None
 depends_on = None
 

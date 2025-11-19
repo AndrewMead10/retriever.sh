@@ -3,10 +3,12 @@ import type {
   LoginData,
   ProjectCreatePayload,
   ProjectCreateResponse,
+  ProjectRotateKeyResponse,
   ProjectsOnload,
   RegisterPayload,
   User,
 } from '@/lib/types'
+import { hasActiveSession } from '@/lib/session'
 
 // Refresh lock to prevent concurrent refresh requests
 let refreshPromise: Promise<void> | null = null
@@ -164,6 +166,19 @@ const apiClient = {
     }
   },
 
+  async rotateProjectApiKey(projectId: number): Promise<ProjectRotateKeyResponse> {
+    const response = await fetchWithAuth('/api/projects/rotate-api-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId }),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.detail || error.message || 'Failed to rotate API key')
+    }
+    return response.json()
+  },
+
   async createCheckout(planSlug: string): Promise<string> {
     const response = await fetchWithAuth(`/api/billing/checkout?plan_slug=${planSlug}`, { method: 'POST' })
     if (!response.ok) {
@@ -193,6 +208,7 @@ export const api = {
     list: apiClient.getProjects,
     create: apiClient.createProject,
     delete: apiClient.deleteProject,
+    rotateKey: apiClient.rotateProjectApiKey,
   },
   billing: {
     checkout: apiClient.createCheckout,
@@ -208,6 +224,7 @@ type UseAuthOptions = {
 export function useAuth(options: UseAuthOptions = {}) {
   const queryClient = useQueryClient()
   const { fetchUser = true } = options
+  const shouldFetchUser = fetchUser && hasActiveSession()
 
   const login = useMutation({
     mutationFn: apiClient.login,
@@ -242,7 +259,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     queryKey: ['user'],
     queryFn: apiClient.getCurrentUser,
     retry: false,
-    enabled: fetchUser,
+    enabled: shouldFetchUser,
   })
 
   return {
@@ -268,11 +285,18 @@ export function usePageData(page: string) {
   })
 }
 
-export function useProjects() {
+type UseProjectsOptions = {
+  enabled?: boolean
+  refetchOnWindowFocus?: boolean
+}
+
+export function useProjects(options: UseProjectsOptions = {}) {
+  const { enabled = true, refetchOnWindowFocus = false } = options
   return useQuery({
     queryKey: ['projects'],
     queryFn: apiClient.getProjects,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus,
+    enabled,
   })
 }
 
@@ -290,6 +314,16 @@ export function useDeleteProject() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: apiClient.deleteProject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
+export function useRotateProjectKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (projectId: number) => apiClient.rotateProjectApiKey(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },

@@ -1,7 +1,7 @@
 """remove vector top-ups
 
 Revision ID: 0004_remove_vector_topups
-Revises: 0003_replace_stripe_with_polar
+Revises: 0004_add_email_verification
 Create Date: 2025-11-09 12:00:00.000000
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0004_remove_vector_topups"
-down_revision = "0003_replace_stripe_with_polar"
+down_revision = "0004_add_email_verification"
 branch_labels = None
 depends_on = None
 

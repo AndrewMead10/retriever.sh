@@ -563,6 +563,50 @@
         }
       }
     },
+    "/api/billing/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Create Checkout",
+        "operationId": "create_checkout_api_billing_checkout_post",
+        "parameters": [
+          {
+            "name": "plan_slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Plan slug for checkout",
+              "title": "Plan Slug"
+            },
+            "description": "Plan slug for checkout"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/billing/portal": {
       "post": {
         "tags": [
@@ -606,6 +650,54 @@
                 }
               ],
               "title": "Polar-Signature"
+            }
+          },
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Signature"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Id"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Timestamp"
             }
           }
         ],
@@ -1073,17 +1165,6 @@
               }
             ],
             "title": "Vector Limit"
-          },
-          "per_project_vector_limit": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Per Project Vector Limit"
           }
         },
         "type": "object",

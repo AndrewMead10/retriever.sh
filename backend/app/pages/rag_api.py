@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+import secrets
+from typing import Mapping, Optional, Sequence
 
 import anyio
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
@@ -12,7 +13,7 @@ if settings.logfire_enabled:
     import logfire
 
 from ..database import get_db
-from ..database.models import User, UserSubscription, Plan, Project
+from ..database.models import User, UserSubscription, Plan, Project, ProjectDocument
 from ..functions.accounts import decrement_vector_usage, ensure_vector_capacity, increment_usage
 from ..functions.api_keys import verify_api_key
 from ..functions.rate_limits import consume_rate_limit
@@ -53,6 +54,28 @@ def _get_plan(project: Project) -> Plan:
     return subscription.plan
 
 
+def _document_to_response(document: ProjectDocument) -> dict:
+    return {
+        "id": document.id,
+        "content": document.content,
+        "title": document.title,
+        "url": document.url,
+        "published_at": document.published_at,
+        "created_at": document.created_at,
+    }
+
+
+def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
+    return {
+        "id": hit.get("document_id"),
+        "content": hit.get("content", ""),
+        "title": hit.get("title", ""),
+        "url": hit.get("url", ""),
+        "published_at": hit.get("published_at", ""),
+        "created_at": hit.get("created_at"),
+    }
+
+
 @router.post(
     "/projects/{project_id}/documents",
     response_model=DocumentOut,
@@ -84,29 +107,37 @@ async def ingest_document(
     )
 
     embedder = vector_store_registry.get_embedder(project)
-    database = vector_store_registry.get_database(project)
+    vector_store = vector_store_registry.get_vector_store(project)
+
+    document = ProjectDocument(
+        project_id=project.id,
+        title=payload.title,
+        content=payload.text,
+        url=payload.url,
+        published_at=payload.published_at,
+        vespa_document_id=f"pending_{secrets.token_hex(8)}",
+    )
+    db.add(document)
+    db.flush()
+
+    document.vespa_document_id = f"{project.vector_store_path}_{document.id}"
+    db.add(document)
 
     embedding = await anyio.to_thread.run_sync(
         lambda: embedder.embed_document(title=payload.title, text=payload.text)
     )
-    row = await anyio.to_thread.run_sync(
-        lambda: database.insert_document(
-            content=payload.text,
-            title=payload.title,
-            url=payload.url,
-            published_at=payload.published_at,
-            embedding=embedding,
-        )
+    await anyio.to_thread.run_sync(
+        lambda: vector_store.upsert_document(document=document, embedding=embedding)
     )
 
     project.vector_count += 1
     project.last_ingest_at = datetime.utcnow()
     increment_usage(db, user=user, ingests=1, vectors=1)
-    db.add(project)
+    db.add_all([project, document])
     db.commit()
-    db.refresh(project)
+    db.refresh(document)
 
-    return DocumentOut.model_validate(row)
+    return DocumentOut.model_validate(_document_to_response(document))
 
 
 @router.delete(
@@ -126,10 +157,23 @@ async def delete_vector(
     if user is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
 
-    database = vector_store_registry.get_database(project)
-    deleted = await anyio.to_thread.run_sync(lambda: database.delete_document(document_id))
-    if not deleted:
+    document = (
+        db.query(ProjectDocument)
+        .filter(
+            ProjectDocument.project_id == project.id,
+            ProjectDocument.id == document_id,
+            ProjectDocument.active == True,
+        )
+        .first()
+    )
+    if document is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    vector_store = vector_store_registry.get_vector_store(project)
+    await anyio.to_thread.run_sync(lambda: vector_store.delete_document(document))
+
+    document.active = False
+    db.add(document)
 
     project.vector_count = max(0, project.vector_count - 1)
     decrement_vector_usage(db, user=user, vectors=1)
@@ -176,7 +220,7 @@ async def query_project(
     )
 
     embedder = vector_store_registry.get_embedder(project)
-    database = vector_store_registry.get_database(project)
+    vector_store = vector_store_registry.get_vector_store(project)
 
     top_k = payload.top_k or project.top_k_default
     vector_k = payload.vector_k or max(project.vector_search_k, top_k)
@@ -185,20 +229,20 @@ async def query_project(
     fts_query = normalise_fts_query(payload.query)
 
     rows = await anyio.to_thread.run_sync(
-        lambda: database.hybrid_search(
+        lambda: vector_store.hybrid_search(
             embedding=embedding,
-            fts_query=fts_query,
-            top_k=top_k,
             vector_k=vector_k,
+            top_k=top_k,
             weight_vector=project.hybrid_weight_vector,
             weight_text=project.hybrid_weight_text,
+            fts_query=fts_query,
         )
     )
 
     increment_usage(db, user=user, queries=1)
     db.commit()
 
-    results = [QueryResult.model_validate(row) for row in rows]
+    results = [QueryResult.model_validate(_vespa_hit_to_response(row)) for row in rows]
 
     # Log query success if LogFire is enabled
     if settings.logfire_enabled:

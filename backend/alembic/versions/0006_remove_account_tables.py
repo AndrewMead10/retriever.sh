@@ -1,7 +1,7 @@
 """remove account tables and migrate to user
 
 Revision ID: 0006_remove_account_tables
-Revises: 0004_remove_vector_topups, 0005_add_active_columns
+Revises: 0005_add_active_columns
 Create Date: 2025-11-09 00:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0006_remove_account_tables"
-down_revision = ("0004_remove_vector_topups", "0005_add_active_columns")
+down_revision = "0005_add_active_columns"
 branch_labels = None
 depends_on = None
 
