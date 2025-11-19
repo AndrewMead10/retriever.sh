@@ -7,8 +7,8 @@
 
 set -e
 
-SERVICE_NAME="RAG"  # REPLACE with actual service name
-SERVICE_PORT="5000"          # REPLACE with actual port
+SERVICE_NAME="retriever"
+SERVICE_PORT="5656"
 FULL_REBUILD=false
 
 # Parse command line arguments
@@ -49,16 +49,11 @@ if [ -d ".git" ]; then
     git pull origin $(git branch --show-current) || echo "No git repository or failed to pull"
 fi
 
-if [ "$FULL_REBUILD" = true ]; then
-    echo "Full rebuild requested - rebuilding Docker image with no cache..."
-    docker-compose build --no-cache
-else
-    echo "Quick update - rebuilding Docker image (using cache)..."
-    docker-compose build
-fi
+echo "Pulling latest Docker image from Docker Hub..."
+docker compose -f docker-compose.yml pull backend
 
 echo "Removing old containers..."
-docker-compose down --remove-orphans
+docker compose -f docker-compose.yml down --remove-orphans
 
 echo "Starting updated service..."
 sudo systemctl start "$SERVICE_NAME"
@@ -68,8 +63,8 @@ if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "✅ Service is running successfully!"
     
     # Check if the API is responding
-    if curl -s -f http://192.168.0.119:${SERVICE_PORT}/ > /dev/null; then
-        echo "✅ API is responding at http://192.168.0.119:${SERVICE_PORT}"
+    if curl -s -f http://localhost:${SERVICE_PORT}/ > /dev/null; then
+        echo "✅ API is responding at http://localhost:${SERVICE_PORT}"
     else
         echo "⚠️  Service is running but API may not be ready yet"
     fi
@@ -82,4 +77,4 @@ fi
 echo ""
 echo "Update complete!"
 echo "Service logs: sudo journalctl -u $SERVICE_NAME -f"
-echo "Docker logs: docker-compose logs -f"
+echo "Docker logs: docker compose -f docker-compose.yml logs -f"

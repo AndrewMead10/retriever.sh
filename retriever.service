@@ -1,0 +1,24 @@
+[Unit]
+Description=Retriever.sh Docker Compose Application
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/root/retriever.sh
+ExecStartPre=/usr/bin/docker compose -f docker-compose.yml pull --quiet
+ExecStart=/usr/bin/docker compose -f docker-compose.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f docker-compose.yml down
+ExecReload=/usr/bin/docker compose -f docker-compose.yml pull --quiet
+ExecReload=/usr/bin/docker compose -f docker-compose.yml up -d --remove-orphans --force-recreate
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

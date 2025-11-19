@@ -4,9 +4,9 @@ services:
     environment:
       POSTGRES_DB: rag
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d rag"]
       interval: 10s
@@ -16,8 +16,42 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  vespa:
+    image: vespaengine/vespa
+    hostname: vespa
+    ports:
+      - "8080:8080"
+      - "19071:19071"
+    volumes:
+      - vespa-data:/opt/vespa/var
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:19071/state/v1/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  vespa-init:
+    image: alpine:latest
+    hostname: vespa-init
+    command: /scripts/deploy-vespa.sh
+    volumes:
+      - ./vespa:/app/vespa:ro
+      - ./scripts:/scripts:ro
+    depends_on:
+      vespa:
+        condition: service_healthy
+    restart: "no"
+
   backend:
-    build: .
+    image: dysondunbar/retriever:latest
     ports:
       - "5656:5656"
     environment:
@@ -32,7 +66,7 @@ services:
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - R2_BUCKET=${R2_BUCKET}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/rag}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres:SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=@db:5432/rag}
       - ENABLE_USER_REGISTRATION=${ENABLE_USER_REGISTRATION:-true}
       - ENABLE_PASSWORD_RESET=${ENABLE_PASSWORD_RESET:-true}
       - ENABLE_ADMIN_PANEL=${ENABLE_ADMIN_PANEL:-true}
@@ -60,10 +94,19 @@ services:
       - POLAR_SUCCESS_URL=${POLAR_SUCCESS_URL:-http://localhost:3000/billing/success}
       - POLAR_CANCEL_URL=${POLAR_CANCEL_URL:-http://localhost:3000/billing}
       - POLAR_PORTAL_RETURN_URL=${POLAR_PORTAL_RETURN_URL:-http://localhost:3000/billing}
+      - VESPA_ENDPOINT=${VESPA_ENDPOINT:-http://vespa:8080}
+      - VESPA_NAMESPACE=${VESPA_NAMESPACE:-rag}
+      - VESPA_DOCUMENT_TYPE=${VESPA_DOCUMENT_TYPE:-rag_document}
+      - VESPA_RANK_PROFILE=${VESPA_RANK_PROFILE:-rag-hybrid}
+      - VESPA_TIMEOUT_SECONDS=${VESPA_TIMEOUT_SECONDS:-10}
+      - VESPA_EMBED_DIM=${VESPA_EMBED_DIM:-768}
     depends_on:
       db:
         condition: service_healthy
+      vespa-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:
   postgres-data:
+  vespa-data:
