@@ -52,28 +52,27 @@ function HomePage() {
               </h1>
               <div className="h-1 bg-foreground dither-border"></div>
               <p className="text-lg text-muted-foreground font-mono-jetbrains leading-relaxed">
-                Cheap, straightforward search with Claude skill integration.
-                No infrastructure setup required - just sign up and start searching.
+                Cheap, easy to use search for your apps. Comes with Claude Code integration out of the box so you can seamlessly add search to your project.
               </p>
             </div>
 
             {/* Feature grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-card border border-foreground dither-border sharp-corners p-4">
-                <div className="text-xs font-bold mb-2">// CLAUDE SKILL</div>
-                <div className="text-sm">Easy AI integration</div>
-              </div>
-              <div className="bg-card border border-foreground dither-border sharp-corners p-4">
-                <div className="text-xs font-bold mb-2">// NO INFRA</div>
-                <div className="text-sm">Just sign up & go</div>
-              </div>
-              <div className="bg-card border border-foreground dither-border sharp-corners p-4">
-                <div className="text-xs font-bold mb-2">// CHEAP</div>
+                <div className="text-xs font-bold mb-2">// LOW COST</div>
                 <div className="text-sm">Straightforward pricing</div>
               </div>
               <div className="bg-card border border-foreground dither-border sharp-corners p-4">
                 <div className="text-xs font-bold mb-2">// SIMPLE</div>
-                <div className="text-sm">Search API</div>
+                <div className="text-sm">Add, search, delete; that's all you need.</div>
+              </div>
+              <div className="bg-card border border-foreground dither-border sharp-corners p-4">
+                <div className="text-xs font-bold mb-2">// EASY SETUP</div>
+                <div className="text-sm">Just get your API key and go.</div>
+              </div>
+              <div className="bg-card border border-foreground dither-border sharp-corners p-4">
+                <div className="text-xs font-bold mb-2">// CLAUDE SKILL INTEGRATION</div>
+                <div className="text-sm">AI ready out of the box.</div>
               </div>
             </div>
 
