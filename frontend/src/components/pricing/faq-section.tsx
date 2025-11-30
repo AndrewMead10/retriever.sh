@@ -44,15 +44,15 @@ export function FAQSection({
 export const DEFAULT_FAQS: FAQItem[] = [
   {
     question: 'What makes retriever.sh different?',
-    answer: 'Simple, affordable search with no infrastructure setup and easy Claude skill integration.',
+    answer: 'Simple, affordable search with no infrastructure setup and easy integration with Claude Code.',
   },
   {
     question: 'How does Claude integration work?',
-    answer: 'Our API works seamlessly with Claude\'s skill system for instant AI-powered search capabilities.',
+    answer: 'We have a Claude Skill file you can add to Claude Code so it automatically knows how to use our API.',
   },
   {
     question: 'How do I get started?',
-    answer: 'Sign up, choose your plan, and get instant API access. No setup required - start searching immediately.',
+    answer: 'Sign up, choose your plan, and get instant API access. No setup required - start building your search engine immediately.',
   },
   {
     question: 'Can I change plans anytime?',
