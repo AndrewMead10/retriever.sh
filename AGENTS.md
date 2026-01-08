@@ -27,6 +27,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Vespa cutover (Nov 19, 2025): pgvector tables are gone. Document content + embeddings now live in the Vespa app under the `rag_document` schema (deployed from `/vespa`). PostgreSQL keeps IDs + metadata via the new `project_documents` table so API responses still expose numeric `document_id`s.
 - Container base image (Nov 10, 2025): Dockerfile now uses `python:3.11-slim` for both backend stages; llama.cpp dependencies are installed via UV from backend `pyproject.toml` for both local dev and production parity.
 - Alembic history linearized (Nov 16, 2025): migrations now form a single chain (`0002_account_plan_structures` → `0003_replace_stripe_with_polar` → `0003_postgres_vector_store` → `0004_add_email_verification` → `0004_remove_vector_topups` → `0005_add_active_columns` → `0006_remove_account_tables`) so `alembic upgrade head` no longer errors with "Multiple head revisions."
+- Deployment update (Jan 8, 2026): `npm run build` now outputs directly to `backend/app/static`, and production deploys are expected to run `uv run uvicorn app.main:app --reload` without Docker; update flow is pull code, build frontend, then restart uvicorn.
 
 ---
 
@@ -45,7 +46,7 @@ This template implements a modern full-stack application with:
 - **Backend**: FastAPI with SQLAlchemy, JWT authentication, structured logging, and UV for dependency management 
 - **Frontend**: Vite, using React with TypeScript, TanStack Router/Query, ShadCN, Tailwind CSS
 - **Database**: PostgreSQL (application + `project_documents`) plus Vespa (`rag_document` schema) with Alembic migrations
-- **Deployment**: Docker and Docker Compose ready
+- **Deployment**: Uvicorn with frontend assets built into the backend static directory
 
 ## Quick Start
 
@@ -61,14 +62,22 @@ The app in development will have a seperate frontend and backend running, but fo
 
 ### Production Deployment
 
-1. **Using Docker Compose**:
+1. **Build frontend into backend static assets**:
    ```bash
-   cp .env.example .env
-   # Edit .env with production values
-   docker-compose up -d
+   cd frontend
+   npm install
+   npm run build
    ```
 
-2. **Access the application**:
+2. **Run the backend**:
+   ```bash
+   cd backend
+   uv sync
+   uv run alembic upgrade head
+   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+   ```
+
+3. **Access the application**:
    - Application: http://localhost:5656
    - API Docs: http://localhost:5656/docs
 
@@ -77,11 +86,7 @@ The app in development will have a seperate frontend and backend running, but fo
 For updating a running production deployment:
 
 ```bash
-# Quick update (uses Docker cache)
 ./update-deployment.sh
-
-# Full rebuild (no cache, slower but ensures clean build)
-./update-deployment.sh --full-rebuild
 ```
 
 ## Architecture

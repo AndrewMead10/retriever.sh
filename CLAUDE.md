@@ -27,7 +27,7 @@ This template implements a modern full-stack application with:
 - **Backend**: FastAPI with SQLAlchemy, JWT authentication, structured logging, and UV for dependency management 
 - **Frontend**: Vite, using React with TypeScript, TanStack Router/Query, ShadCN, Tailwind CSS
 - **Database**: SQLite with Alembic migrations
-- **Deployment**: Docker and Docker Compose ready
+- **Deployment**: Uvicorn with frontend assets built into the backend static directory
 
 ## Quick Start
 
@@ -59,21 +59,29 @@ This template implements a modern full-stack application with:
    ```
 
 4. **Access the application**:
-The app in development will have a seperate frontend and backend running, but for deployments, we will build and server the frontend from the backend, allowing for a single container deployment.
+The app in development will have a seperate frontend and backend running, but for deployments we build and serve the frontend from the backend's static directory.
    - Frontend: http://localhost:3000 (development)
    - Backend API: http://localhost:5656
    - API Docs: http://localhost:5656/docs
 
-### Production Deployment
+### Production Deployment (no Docker)
 
-1. **Using Docker Compose**:
+1. **Build frontend into backend static assets**:
    ```bash
-   cp .env.example .env
-   # Edit .env with production values
-   docker-compose up -d
+   cd frontend
+   npm install
+   npm run build
    ```
 
-2. **Access the application**:
+2. **Run backend**:
+   ```bash
+   cd backend
+   uv sync
+   uv run alembic upgrade head
+   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+   ```
+
+3. **Access the application**:
    - Application: http://localhost:5656
    - API Docs: http://localhost:5656/docs
 
@@ -82,11 +90,7 @@ The app in development will have a seperate frontend and backend running, but fo
 For updating a running production deployment:
 
 ```bash
-# Quick update (uses Docker cache)
 ./update-deployment.sh
-
-# Full rebuild (no cache, slower but ensures clean build)
-./update-deployment.sh --full-rebuild
 ```
 
 ## Architecture
