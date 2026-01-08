@@ -55,7 +55,7 @@ type ApiKeyRevealReason = 'create' | 'rotate'
 type ApiKeyModalState =
   | { open: false }
   | { open: true; mode: 'confirm'; projectId: number; projectName: string }
-  | { open: true; mode: 'reveal'; apiKey: string; projectName: string; reason: ApiKeyRevealReason }
+  | { open: true; mode: 'reveal'; apiKey: string; projectId: number; projectName: string; reason: ApiKeyRevealReason }
 
 function ProjectsPage() {
   const { data, isLoading, error } = useProjects()
@@ -81,12 +81,12 @@ function ProjectsPage() {
     },
   })
 
-  const copyApiKey = async (
-    apiKey: string,
-    messages: { success?: string; fallback?: string } = {}
+  const copyToClipboard = async (
+    value: string,
+    messages: { success?: string; fallback?: string; label?: string } = {}
   ) => {
     try {
-      await navigator.clipboard.writeText(apiKey)
+      await navigator.clipboard.writeText(value)
       if (messages.success) {
         toast.success(messages.success)
       }
@@ -94,12 +94,12 @@ function ProjectsPage() {
       if (messages.fallback) {
         toast.success(messages.fallback)
       }
-      toast('API Key', { description: apiKey })
+      toast(messages.label || 'Copied value', { description: value })
     }
   }
 
-  const openApiKeyReveal = (apiKey: string, projectName: string, reason: ApiKeyRevealReason) => {
-    setApiKeyModal({ open: true, mode: 'reveal', apiKey, projectName, reason })
+  const openApiKeyReveal = (apiKey: string, projectId: number, projectName: string, reason: ApiKeyRevealReason) => {
+    setApiKeyModal({ open: true, mode: 'reveal', apiKey, projectId, projectName, reason })
   }
 
   const closeApiKeyModal = () => {
@@ -120,18 +120,23 @@ function ProjectsPage() {
     const { projectId, projectName } = apiKeyModal
     try {
       const result = await rotateProjectKey.mutateAsync(projectId)
-      await copyApiKey(result.ingest_api_key, {
+      await copyToClipboard(result.ingest_api_key, {
         success: 'New API key copied to clipboard. Previous key is no longer valid.',
         fallback: 'New API key ready. Previous key is no longer valid.',
+        label: 'API Key',
       })
-      openApiKeyReveal(result.ingest_api_key, projectName, 'rotate')
+      openApiKeyReveal(result.ingest_api_key, result.project_id, projectName, 'rotate')
     } catch (err: any) {
       toast.error(err?.message || 'Failed to rotate API key')
     }
   }
 
   const handleModalCopy = (apiKey: string) => {
-    void copyApiKey(apiKey, { success: 'API key copied to clipboard.' })
+    void copyToClipboard(apiKey, { success: 'API key copied to clipboard.', label: 'API Key' })
+  }
+
+  const handleCopyProjectId = (projectId: number) => {
+    void copyToClipboard(String(projectId), { success: 'Project ID copied to clipboard.', label: 'Project ID' })
   }
 
   const handleCreateProject = async () => {
@@ -143,11 +148,12 @@ function ProjectsPage() {
       const result = await createProject.mutateAsync(formState)
       setShowCreate(false)
       setFormState({ name: '', description: '' })
-      await copyApiKey(result.ingest_api_key, {
+      await copyToClipboard(result.ingest_api_key, {
         success: 'Project created. API key copied to clipboard.',
         fallback: 'Project created. Copy the API key below.',
+        label: 'API Key',
       })
-      openApiKeyReveal(result.ingest_api_key, result.project.name, 'create')
+      openApiKeyReveal(result.ingest_api_key, result.project.id, result.project.name, 'create')
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create project')
     }
@@ -362,6 +368,7 @@ function ProjectsPage() {
               <TableHeader>
                 <TableRow className="border-b border-foreground">
                   <TableHead className="font-bold text-xs">// NAME</TableHead>
+                  <TableHead className="font-bold text-xs">// ID</TableHead>
                   <TableHead className="font-bold text-xs">// VECTORS</TableHead>
                   <TableHead className="font-bold text-xs text-right">// ACTIONS</TableHead>
                 </TableRow>
@@ -375,6 +382,19 @@ function ProjectsPage() {
                         {project.description && (
                           <span className="text-xs text-muted-foreground font-mono-jetbrains">{project.description}</span>
                         )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono-jetbrains">
+                      <div className="flex items-center gap-2">
+                        <span>{project.id}</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCopyProjectId(project.id)}
+                          className="bg-background border-2 border-foreground sharp-corners font-bold text-[10px] leading-none hover:bg-foreground hover:text-background transition-all duration-200"
+                        >
+                          [ COPY ]
+                        </Button>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono-jetbrains">{formatNumber(project.vector_count)}</TableCell>
@@ -457,6 +477,7 @@ function ProjectsPage() {
         onClose={closeApiKeyModal}
         onConfirmRotate={confirmRotateApiKey}
         onCopy={handleModalCopy}
+        onCopyProjectId={handleCopyProjectId}
         isSubmitting={rotateProjectKey.isPending}
       />
       </div>
@@ -487,17 +508,35 @@ interface ApiKeyDialogProps {
   onClose: () => void
   onConfirmRotate: () => void
   onCopy: (apiKey: string) => void
+  onCopyProjectId: (projectId: number) => void
   isSubmitting: boolean
 }
 
-function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, isSubmitting }: ApiKeyDialogProps) {
+function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId, isSubmitting }: ApiKeyDialogProps) {
+  const [copied, setCopied] = useState(false)
+  const [idCopied, setIdCopied] = useState(false)
+
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       if (state.open && state.mode === 'confirm' && isSubmitting) {
         return
       }
+      setCopied(false)
+      setIdCopied(false)
       onClose()
     }
+  }
+
+  const handleCopy = (apiKey: string) => {
+    onCopy(apiKey)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleCopyProjectId = (projectId: number) => {
+    onCopyProjectId(projectId)
+    setIdCopied(true)
+    setTimeout(() => setIdCopied(false), 2000)
   }
 
   const confirmState = state.open && state.mode === 'confirm' ? state : null
@@ -563,10 +602,28 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, isSubmitting }:
                     <span className="truncate">{revealState.apiKey}</span>
                     <Button
                       size="sm"
-                      onClick={() => onCopy(revealState.apiKey)}
-                      className="bg-foreground text-background sharp-corners font-bold hover:bg-muted hover:text-foreground"
+                      onClick={() => handleCopy(revealState.apiKey)}
+                      className={`sharp-corners font-bold transition-all duration-200 ${
+                        copied
+                          ? 'bg-green-600 text-white border-green-600 hover:bg-green-600'
+                          : 'bg-foreground text-background hover:bg-muted hover:text-foreground'
+                      }`}
                     >
-                      [ COPY ]
+                      {copied ? '[ COPIED! ]' : '[ COPY ]'}
+                    </Button>
+                  </div>
+                  <div className="bg-background border-2 border-foreground dither-border sharp-corners flex items-center justify-between gap-3 px-4 py-3 font-mono-jetbrains text-sm">
+                    <span>Project ID: {revealState.projectId}</span>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCopyProjectId(revealState.projectId)}
+                      className={`sharp-corners font-bold transition-all duration-200 ${
+                        idCopied
+                          ? 'bg-green-600 text-white border-green-600 hover:bg-green-600'
+                          : 'bg-foreground text-background hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      {idCopied ? '[ COPIED! ]' : '[ COPY ]'}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono-jetbrains">

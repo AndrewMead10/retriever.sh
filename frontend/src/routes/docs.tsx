@@ -101,149 +101,162 @@ function DocsPage() {
   )
 
   const codeExamples = {
-    search: {
+    ingest: {
       python: `import requests
 
-def search(query: str, api_key: str, limit: int = 10):
-    """Search your knowledge base"""
+def ingest_document(project_id: int, api_key: str, payload: dict):
+    """Ingest a document into a project"""
     response = requests.post(
-        "https://api.retriever.sh/v1/search",
+        f"http://localhost:5656/api/rag/projects/{project_id}/documents",
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "X-Project-Key": api_key,
             "Content-Type": "application/json"
         },
-        json={"query": query, "limit": limit}
+        json=payload,
     )
+    response.raise_for_status()
     return response.json()
 
 # Usage
-results = search("How do I install Python?", "rs_live_...")
-for result in results["results"]:
-    print(f"{result['title']}: {result['content']}")`,
-      javascript: `async function search(query, apiKey, limit = 10) {
-  // Search your knowledge base
-  const response = await fetch('https://api.retriever.sh/v1/search', {
-    method: 'POST',
-    headers: {
-      'Authorization': \`Bearer \${apiKey}\`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ query, limit })
-  });
+document = {
+    "title": "Python Installation Guide",
+    "text": "To install Python, visit python.org...",
+    "url": "https://python.org/downloads/",
+    "published_at": "2025-01-15T12:00:00Z"
+}
+result = ingest_document(123, "proj_...your_key...", document)
+print(f"Document ID: {result['id']}")`,
+      javascript: `async function ingestDocument(projectId, apiKey, payload) {
+  // Ingest a document into a project
+  const response = await fetch(
+    \`/api/rag/projects/\${projectId}/documents\`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Project-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    }
+  );
+  if (!response.ok) {
+    throw new Error('Failed to ingest document');
+  }
   return await response.json();
 }
 
 // Usage
-const results = await search('How do I install Python?', 'rs_live_...');
+const document = {
+  title: 'Python Installation Guide',
+  text: 'To install Python, visit python.org...',
+  url: 'https://python.org/downloads/',
+  published_at: '2025-01-15T12:00:00Z'
+};
+const result = await ingestDocument(123, 'proj_...your_key...', document);
+console.log('Document ID:', result.id);`,
+      curl: `# Ingest a document into a project
+curl -X POST http://localhost:5656/api/rag/projects/123/documents \\
+  -H "X-Project-Key: proj_...your_key..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "title": "Python Installation Guide",
+    "text": "To install Python, visit python.org...",
+    "url": "https://python.org/downloads/",
+    "published_at": "2025-01-15T12:00:00Z"
+  }'`,
+    },
+    query: {
+      python: `import requests
+
+def query_project(project_id: int, api_key: str, query: str, top_k: int = 5):
+    """Query a project using hybrid retrieval"""
+    response = requests.post(
+        f"http://localhost:5656/api/rag/projects/{project_id}/query",
+        headers={
+            "X-Project-Key": api_key,
+            "Content-Type": "application/json"
+        },
+        json={"query": query, "top_k": top_k},
+    )
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+results = query_project(123, "proj_...your_key...", "How do I install Python?", top_k=5)
+for result in results["results"]:
+    print(f"{result['title']}: {result['content'][:120]}...")`,
+      javascript: `async function queryProject(projectId, apiKey, payload) {
+  // Query a project using hybrid retrieval
+  const response = await fetch(
+    \`/api/rag/projects/\${projectId}/query\`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Project-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    }
+  );
+  if (!response.ok) {
+    throw new Error('Failed to query project');
+  }
+  return await response.json();
+}
+
+// Usage
+const results = await queryProject(123, 'proj_...your_key...', {
+  query: 'How do I install Python?',
+  top_k: 5,
+  vector_k: 40
+});
 results.results.forEach(result => {
-  console.log(\`\${result.title}: \${result.content}\`);
+  console.log(\`\${result.title}: \${result.content.slice(0, 120)}...\`);
 });`,
-      curl: `# Search your knowledge base
-curl -X POST https://api.retriever.sh/v1/search \\
-  -H "Authorization: Bearer rs_live_..." \\
+      curl: `# Query a project using hybrid retrieval
+curl -X POST http://localhost:5656/api/rag/projects/123/query \\
+  -H "X-Project-Key: proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
     "query": "How do I install Python?",
-    "limit": 10
-  }'`,
-    },
-    add: {
-      python: `import requests
-
-def add_documents(documents: list, api_key: str):
-    """Add documents to your knowledge base"""
-    response = requests.post(
-        "https://api.retriever.sh/v1/documents",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        },
-        json={"documents": documents}
-    )
-    return response.json()
-
-# Usage
-docs = [
-    {
-        "id": "doc_1",
-        "title": "Python Installation Guide",
-        "content": "To install Python, visit python.org...",
-        "metadata": {"category": "tutorial"}
-    }
-]
-result = add_documents(docs, "rs_live_...")
-print(f"Added {result['count']} documents")`,
-      javascript: `async function addDocuments(documents, apiKey) {
-  // Add documents to your knowledge base
-  const response = await fetch('https://api.retriever.sh/v1/documents', {
-    method: 'POST',
-    headers: {
-      'Authorization': \`Bearer \${apiKey}\`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ documents })
-  });
-  return await response.json();
-}
-
-// Usage
-const docs = [
-  {
-    id: 'doc_1',
-    title: 'Python Installation Guide',
-    content: 'To install Python, visit python.org...',
-    metadata: { category: 'tutorial' }
-  }
-];
-const result = await addDocuments(docs, 'rs_live_...');
-console.log(\`Added \${result.count} documents\`);`,
-      curl: `# Add documents to your knowledge base
-curl -X POST https://api.retriever.sh/v1/documents \\
-  -H "Authorization: Bearer rs_live_..." \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "documents": [
-      {
-        "id": "doc_1",
-        "title": "Python Installation Guide",
-        "content": "To install Python, visit python.org...",
-        "metadata": {"category": "tutorial"}
-      }
-    ]
+    "top_k": 5,
+    "vector_k": 40
   }'`,
     },
     delete: {
       python: `import requests
 
-def delete_document(document_id: str, api_key: str):
-    """Delete a document from your knowledge base"""
+def delete_vector(project_id: int, document_id: int, api_key: str) -> None:
+    """Delete a document vector from a project"""
     response = requests.delete(
-        f"https://api.retriever.sh/v1/documents/{document_id}",
-        headers={"Authorization": f"Bearer {api_key}"}
+        f"http://localhost:5656/api/rag/projects/{project_id}/vectors/{document_id}",
+        headers={"X-Project-Key": api_key},
     )
-    return response.json()
+    if response.status_code != 204:
+        raise Exception(f"Delete failed: {response.text}")
 
 # Usage
-result = delete_document("doc_1", "rs_live_...")
-print(f"Deleted: {result['success']}")`,
-      javascript: `async function deleteDocument(documentId, apiKey) {
-  // Delete a document from your knowledge base
+delete_vector(123, 456, "proj_...your_key...")`,
+      javascript: `async function deleteVector(projectId, documentId, apiKey) {
+  // Delete a document vector from a project
   const response = await fetch(
-    \`https://api.retriever.sh/v1/documents/\${documentId}\`,
+    \`/api/rag/projects/\${projectId}/vectors/\${documentId}\`,
     {
       method: 'DELETE',
-      headers: { 'Authorization': \`Bearer \${apiKey}\` }
+      headers: { 'X-Project-Key': apiKey }
     }
   );
-  return await response.json();
+  if (response.status !== 204) {
+    const message = await response.text();
+    throw new Error(message || 'Failed to delete vector');
+  }
 }
 
 // Usage
-const result = await deleteDocument('doc_1', 'rs_live_...');
-console.log(\`Deleted: \${result.success}\`);`,
-      curl: `# Delete a document from your knowledge base
-curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
-  -H "Authorization: Bearer rs_live_..."`,
+await deleteVector(123, 456, 'proj_...your_key...');`,
+      curl: `# Delete a document vector from a project
+curl -X DELETE http://localhost:5656/api/rag/projects/123/vectors/456 \\
+  -H "X-Project-Key: proj_...your_key..."`,
     },
   }
 
@@ -255,7 +268,7 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
           <h1 className="text-6xl font-black dither-text mb-4">DOCUMENTATION</h1>
           <div className="h-1 bg-foreground w-32 mx-auto mb-6"></div>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Simple, powerful search API. Just three functions: add, search, delete.
+            Simple, powerful RAG API. Just three calls: ingest, query, delete.
           </p>
         </div>
 
@@ -329,18 +342,19 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
               <div>
                 <h3 className="text-xl font-bold mb-3">1. Get Your API Key</h3>
                 <p className="text-muted-foreground mb-4">
-                  Sign up and retrieve your API key from the projects page.
+                  Create a project and copy its Project API key from the projects page. The Projects table also shows the project ID.
                 </p>
                 <div className="bg-background border border-foreground p-4 font-mono text-sm">
                   <div className="text-muted-foreground mb-2"># Example API key format</div>
-                  <div>rs_live_51f8a9b2c3e4d5f6a7b8c9d0e1f2a3b4</div>
+                  <div>proj_51f8a9b2c3e4d5f6a7b8c9d0e1f2a3b4</div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xl font-bold mb-3">2. That's It!</h3>
+                <h3 className="text-xl font-bold mb-3">2. Add the header</h3>
                 <p className="text-muted-foreground">
-                  You're ready to use all three core functions: add documents, search your knowledge base, and delete when needed.
+                  Send the key as <span className="font-mono">X-Project-Key</span> and pass your project ID in the URL.
+                  Local dev base URL: <span className="font-mono">http://localhost:5656</span>.
                 </p>
               </div>
             </div>
@@ -349,27 +363,27 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
 
         {/* Three Core Functions */}
         <div className="mb-16">
-          <h2 className="text-4xl font-black dither-text mb-8 text-center">THREE SIMPLE FUNCTIONS</h2>
+          <h2 className="text-4xl font-black dither-text mb-8 text-center">THREE CORE ENDPOINTS</h2>
           <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Everything you need to build powerful search into your application. No complexity, just three essential operations.
+            Everything you need to ingest content, query it, and remove it when needed.
           </p>
 
           <div className="space-y-8">
-            {/* Search */}
-            <div id="search" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
+            {/* Ingest */}
+            <div id="ingest" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-2xl font-black mb-2">1. SEARCH</h3>
-                  <p className="text-muted-foreground">Find relevant documents using semantic search</p>
+                  <h3 className="text-2xl font-black mb-2">1. INGEST DOCUMENT</h3>
+                  <p className="text-muted-foreground">Store a document and its embedding for retrieval</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
-                    <span className="font-mono text-sm">POST /v1/search</span>
+                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/documents</span>
                   </div>
                   <button
-                    onClick={() => copyLinkToSection('search')}
+                    onClick={() => copyLinkToSection('ingest')}
                     className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
-                    aria-label="Copy link to Search section"
+                    aria-label="Copy link to Ingest section"
                   >
                     <Link size={16} />
                   </button>
@@ -382,23 +396,103 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
                 <h4 className="font-bold mb-3">Parameters</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">query</div>
-                    <div className="text-muted-foreground text-xs">string (required)</div>
+                    <div className="font-mono mb-1">project_id</div>
+                    <div className="text-muted-foreground text-xs">path param (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">limit</div>
-                    <div className="text-muted-foreground text-xs">integer (default: 10)</div>
+                    <div className="font-mono mb-1">X-Project-Key</div>
+                    <div className="text-muted-foreground text-xs">header (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">metadata filters</div>
-                    <div className="text-muted-foreground text-xs">object (optional)</div>
+                    <div className="font-mono mb-1">body</div>
+                    <div className="text-muted-foreground text-xs">DocumentIn (required)</div>
                   </div>
                 </div>
               </div>
 
               <div className="mb-4">
                 <h4 className="font-bold mb-3">Example</h4>
-                <CodeBlock code={codeExamples.search[selectedLanguage]} language={selectedLanguage} />
+                <CodeBlock code={codeExamples.ingest[selectedLanguage]} language={selectedLanguage} />
+              </div>
+
+              <div>
+                <h4 className="font-bold mb-3">Response (204 No Content)</h4>
+                <div className="bg-background border border-foreground overflow-hidden sharp-corners">
+                  <SyntaxHighlighter
+                    language="json"
+                    style={vscDarkPlus}
+                    customStyle={{
+                      margin: 0,
+                      padding: '1rem',
+                      background: 'transparent',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+{`{
+  "id": 456,
+  "content": "To install Python, visit python.org...",
+  "title": "Python Installation Guide",
+  "url": "https://python.org/downloads/",
+  "published_at": "2025-01-15T12:00:00Z",
+  "created_at": "2025-01-20T18:42:11.214Z"
+}`}
+                  </SyntaxHighlighter>
+                </div>
+              </div>
+            </div>
+
+            {/* Query */}
+            <div id="query" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black mb-2">2. QUERY PROJECT</h3>
+                  <p className="text-muted-foreground">Run hybrid search across your project</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
+                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/query</span>
+                  </div>
+                  <button
+                    onClick={() => copyLinkToSection('query')}
+                    className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
+                    aria-label="Copy link to Query section"
+                  >
+                    <Link size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <LanguageSwitcher />
+
+              <div className="mb-4">
+                <h4 className="font-bold mb-3">Parameters</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">project_id</div>
+                    <div className="text-muted-foreground text-xs">path param (required)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">X-Project-Key</div>
+                    <div className="text-muted-foreground text-xs">header (required)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">query</div>
+                    <div className="text-muted-foreground text-xs">string (required)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">top_k</div>
+                    <div className="text-muted-foreground text-xs">integer (optional)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">vector_k</div>
+                    <div className="text-muted-foreground text-xs">integer (optional)</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <h4 className="font-bold mb-3">Example</h4>
+                <CodeBlock code={codeExamples.query[selectedLanguage]} language={selectedLanguage} />
               </div>
 
               <div>
@@ -417,87 +511,14 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
 {`{
   "results": [
     {
-      "id": "doc_123",
-      "title": "Document Title",
-      "content": "Relevant excerpt from the document...",
-      "score": 0.95,
-      "metadata": {
-        "category": "tutorial",
-        "author": "John Doe"
-      }
+      "id": 456,
+      "content": "To install Python, visit python.org...",
+      "title": "Python Installation Guide",
+      "url": "https://python.org/downloads/",
+      "published_at": "2025-01-15T12:00:00Z",
+      "created_at": "2025-01-20T18:42:11.214Z"
     }
-  ],
-  "total": 1,
-  "query_time": 0.045
-}`}
-                  </SyntaxHighlighter>
-                </div>
-              </div>
-            </div>
-
-            {/* Add */}
-            <div id="add" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-2xl font-black mb-2">2. ADD</h3>
-                  <p className="text-muted-foreground">Add documents to your knowledge base</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
-                    <span className="font-mono text-sm">POST /v1/documents</span>
-                  </div>
-                  <button
-                    onClick={() => copyLinkToSection('add')}
-                    className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
-                    aria-label="Copy link to Add section"
-                  >
-                    <Link size={16} />
-                  </button>
-                </div>
-              </div>
-
-              <LanguageSwitcher />
-
-              <div className="mb-4">
-                <h4 className="font-bold mb-3">Parameters</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">documents</div>
-                    <div className="text-muted-foreground text-xs">array (required)</div>
-                  </div>
-                  <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">id</div>
-                    <div className="text-muted-foreground text-xs">unique identifier</div>
-                  </div>
-                  <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">metadata</div>
-                    <div className="text-muted-foreground text-xs">custom fields</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-bold mb-3">Example</h4>
-                <CodeBlock code={codeExamples.add[selectedLanguage]} language={selectedLanguage} />
-              </div>
-
-              <div>
-                <h4 className="font-bold mb-3">Response</h4>
-                <div className="bg-background border border-foreground overflow-hidden sharp-corners">
-                  <SyntaxHighlighter
-                    language="json"
-                    style={vscDarkPlus}
-                    customStyle={{
-                      margin: 0,
-                      padding: '1rem',
-                      background: 'transparent',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-{`{
-  "count": 1,
-  "status": "success",
-  "indexed_ids": ["doc_1"]
+  ]
 }`}
                   </SyntaxHighlighter>
                 </div>
@@ -508,12 +529,12 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
             <div id="delete" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-2xl font-black mb-2">3. DELETE</h3>
-                  <p className="text-muted-foreground">Remove documents from your knowledge base</p>
+                  <h3 className="text-2xl font-black mb-2">3. DELETE VECTOR</h3>
+                  <p className="text-muted-foreground">Remove a document vector by ID</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
-                    <span className="font-mono text-sm">DELETE /v1/documents/:id</span>
+                    <span className="font-mono text-sm">DELETE /api/rag/projects/:project_id/vectors/:document_id</span>
                   </div>
                   <button
                     onClick={() => copyLinkToSection('delete')}
@@ -531,8 +552,16 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
                 <h4 className="font-bold mb-3">Parameters</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">project_id</div>
+                    <div className="text-muted-foreground text-xs">path param (required)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
                     <div className="font-mono mb-1">document_id</div>
-                    <div className="text-muted-foreground text-xs">string (required)</div>
+                    <div className="text-muted-foreground text-xs">path param (required)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">X-Project-Key</div>
+                    <div className="text-muted-foreground text-xs">header (required)</div>
                   </div>
                 </div>
               </div>
@@ -555,10 +584,7 @@ curl -X DELETE https://api.retriever.sh/v1/documents/doc_1 \\
                       fontSize: '0.875rem',
                     }}
                   >
-{`{
-  "success": true,
-  "deleted_id": "doc_1"
-}`}
+{`null`}
                   </SyntaxHighlighter>
                 </div>
               </div>
