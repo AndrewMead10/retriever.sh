@@ -53,7 +53,7 @@ class UsageInfo(BaseModel):
 
 
 class ProjectSummary(BaseModel):
-    id: int
+    id: str
     name: str
     description: Optional[str]
     slug: Optional[str]
@@ -97,15 +97,15 @@ class ProjectCreateResponse(BaseModel):
 
 
 class ProjectRotateKeyRequest(BaseModel):
-    project_id: int
+    project_id: str
 
 
 class ProjectApiKeyResponse(BaseModel):
-    project_id: int
+    project_id: str
     ingest_api_key: str
 
 
-def _vector_table_name(project_id: int) -> str:
+def _vector_table_name(project_id: str) -> str:
     return f"vespa_proj_{project_id}"
 
 
@@ -274,7 +274,7 @@ def rotate_project_api_key(
 
 
 class ProjectDeleteRequest(BaseModel):
-    project_id: int
+    project_id: str
 
 
 @router.post("/delete", status_code=status.HTTP_200_OK)

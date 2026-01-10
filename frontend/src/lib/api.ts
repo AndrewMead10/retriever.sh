@@ -154,7 +154,7 @@ const apiClient = {
     return response.json()
   },
 
-  async deleteProject(projectId: number): Promise<void> {
+  async deleteProject(projectId: string): Promise<void> {
     const response = await fetchWithAuth('/api/projects/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -166,7 +166,7 @@ const apiClient = {
     }
   },
 
-  async rotateProjectApiKey(projectId: number): Promise<ProjectRotateKeyResponse> {
+  async rotateProjectApiKey(projectId: string): Promise<ProjectRotateKeyResponse> {
     const response = await fetchWithAuth('/api/projects/rotate-api-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -323,7 +323,7 @@ export function useDeleteProject() {
 export function useRotateProjectKey() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (projectId: number) => apiClient.rotateProjectApiKey(projectId),
+    mutationFn: (projectId: string) => apiClient.rotateProjectApiKey(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },

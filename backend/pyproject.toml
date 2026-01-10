@@ -31,6 +31,7 @@ dependencies = [
     "logfire[sqlalchemy]",
     "logfire[fastapi]",
     "pytest>=8.4.2",
+    "uuid6>=2025.0.1",
 ]
 [tool.ruff]
 line-length = 88

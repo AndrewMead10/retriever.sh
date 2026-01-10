@@ -1,3 +1,4 @@
+from uuid6 import uuid7
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
@@ -125,7 +126,7 @@ class RateLimitBucket(Base):
 class Project(Base, AuditMixin):
     __tablename__ = "projects"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid7()))
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
@@ -154,7 +155,7 @@ class ProjectApiKey(Base, AuditMixin):
     __tablename__ = "project_api_keys"
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
     name = Column(String, nullable=False)
     prefix = Column(String, nullable=False)
     hashed_key = Column(String, nullable=False)
@@ -168,7 +169,7 @@ class ProjectDocument(Base, AuditMixin):
     __tablename__ = "project_documents"
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     vespa_document_id = Column(String, nullable=False, unique=True)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
