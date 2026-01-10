@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # build-and-upload.sh - Build and upload Docker images to Docker Hub
+# NOTE: Docker-based deployments are deprecated for this repo.
 # Usage: ./build-and-upload.sh [--no-cache] [--tag TAG]
 
 set -e

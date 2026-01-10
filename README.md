@@ -63,7 +63,22 @@ npm run dev
 
 Vite runs at `http://localhost:3000` and proxies `/api` to the backend on port 5656.
 
-### 4. Polar Webhooks (optional)
+For production builds, run `npm run build` from `frontend/`. The compiled assets are written directly to `backend/app/static` so the FastAPI server can serve the SPA.
+
+### 4. Deployment (no Docker)
+
+```
+git pull
+cd frontend && npm install && npm run build
+cd ../backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+```
+
+Running `uvicorn` with `--reload` is the default deployment mode for this repo.
+
+### 5. Polar Webhooks (optional)
 
 Configure a tunnel (ngrok, Cloudflare, etc.) and add the forwarded URL as a webhook endpoint in the Polar dashboard, pointing to `http://localhost:5656/api/billing/webhook`.
 

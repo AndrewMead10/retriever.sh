@@ -1,36 +1,19 @@
 #!/bin/bash
 
-# [SERVICE_NAME] Service Update Script
-# This script updates the deployment with new changes
-# Usage: ./update-deployment.sh [--full-rebuild]
-# REPLACE [SERVICE_NAME] and [SERVICE_PORT] with actual values
+# Service Update Script
+# This script updates the deployment with new changes (no Docker)
+# Usage: ./update-deployment.sh
 
 set -e
 
 SERVICE_NAME="retriever"
 SERVICE_PORT="5656"
-FULL_REBUILD=false
 
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --full-rebuild)
-            FULL_REBUILD=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Usage: $0 [--full-rebuild]"
-            exit 1
-            ;;
-    esac
-done
-
-echo "Updating ${SERVICE_NAME} Service deployment..."
+echo "Updating ${SERVICE_NAME} Service deployment (no Docker)..."
 
 # Check if running in the correct directory
-if [ ! -f "docker-compose.yml" ]; then
-    echo "Error: docker-compose.yml not found in current directory"
+if [ ! -d "backend" ] || [ ! -d "frontend" ]; then
+    echo "Error: backend/ or frontend/ not found in current directory"
     echo "Please run this script from the project root directory"
     exit 1
 fi
@@ -49,11 +32,19 @@ if [ -d ".git" ]; then
     git pull origin $(git branch --show-current) || echo "No git repository or failed to pull"
 fi
 
-echo "Pulling latest Docker image from Docker Hub..."
-docker compose -f docker-compose.yml pull backend
+echo "Building frontend into backend static assets..."
+(
+    cd frontend
+    npm install
+    npm run build
+)
 
-echo "Removing old containers..."
-docker compose -f docker-compose.yml down --remove-orphans
+echo "Syncing backend dependencies and running migrations..."
+(
+    cd backend
+    uv sync
+    uv run alembic upgrade head
+)
 
 echo "Starting updated service..."
 sudo systemctl start "$SERVICE_NAME"
@@ -63,8 +54,8 @@ if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "✅ Service is running successfully!"
     
     # Check if the API is responding
-    if curl -s -f http://localhost:${SERVICE_PORT}/ > /dev/null; then
-        echo "✅ API is responding at http://localhost:${SERVICE_PORT}"
+    if curl -s -f http://127.0.0.1:${SERVICE_PORT}/ > /dev/null; then
+        echo "✅ API is responding at http://127.0.0.1:${SERVICE_PORT}"
     else
         echo "⚠️  Service is running but API may not be ready yet"
     fi
@@ -77,4 +68,3 @@ fi
 echo ""
 echo "Update complete!"
 echo "Service logs: sudo journalctl -u $SERVICE_NAME -f"
-echo "Docker logs: docker compose -f docker-compose.yml logs -f"

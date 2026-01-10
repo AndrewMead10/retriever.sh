@@ -2,7 +2,7 @@
 
 ## One-Liner
 
-**"Set up search in 5 minutes, not 5 sprints."**
+**"Set up search in 5 minutes, not 5 hours."**
 
 ---
 
