@@ -24,7 +24,7 @@ from ..services.vector_store import vector_store_registry
 router = APIRouter(prefix="/rag", tags=["rag"])
 
 
-def _load_project(session: Session, project_id: int) -> Project:
+def _load_project(session: Session, project_id: str) -> Project:
     project = (
         session.query(Project)
         .join(User, Project.user_id == User.id)
@@ -82,7 +82,7 @@ def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
     status_code=status.HTTP_201_CREATED,
 )
 async def ingest_document(
-    project_id: int = Path(..., ge=1),
+    project_id: str = Path(...),
     payload: DocumentIn | None = None,
     db: Session = Depends(get_db),
     x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
@@ -145,7 +145,7 @@ async def ingest_document(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_vector(
-    project_id: int = Path(..., ge=1),
+    project_id: str = Path(...),
     document_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
     x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
@@ -187,7 +187,7 @@ async def delete_vector(
     response_model=QueryResponse,
 )
 async def query_project(
-    project_id: int = Path(..., ge=1),
+    project_id: str = Path(...),
     payload: QueryRequest | None = None,
     db: Session = Depends(get_db),
     x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),

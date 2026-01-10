@@ -40,7 +40,7 @@ export interface UsageInfo {
 }
 
 export interface ProjectSummary {
-  id: number
+  id: string
   name: string
   description?: string | null
   slug?: string | null
@@ -84,6 +84,6 @@ export interface ProjectCreateResponse {
 }
 
 export interface ProjectRotateKeyResponse {
-  project_id: number
+  project_id: string
   ingest_api_key: string
 }

@@ -23,7 +23,7 @@ class VectorStoreRegistry:
     """Caches Vespa vector stores and shared embedding services."""
 
     def __init__(self) -> None:
-        self._stores: Dict[int, VespaVectorStore] = {}
+        self._stores: Dict[str, VespaVectorStore] = {}
         self._embed_services: Dict[EmbeddingKey, EmbeddingService] = {}
         self._lock = threading.RLock()
         self._client = VespaClient(

@@ -54,8 +54,8 @@ type ApiKeyRevealReason = 'create' | 'rotate'
 
 type ApiKeyModalState =
   | { open: false }
-  | { open: true; mode: 'confirm'; projectId: number; projectName: string }
-  | { open: true; mode: 'reveal'; apiKey: string; projectId: number; projectName: string; reason: ApiKeyRevealReason }
+  | { open: true; mode: 'confirm'; projectId: string; projectName: string }
+  | { open: true; mode: 'reveal'; apiKey: string; projectId: string; projectName: string; reason: ApiKeyRevealReason }
 
 function ProjectsPage() {
   const { data, isLoading, error } = useProjects()
@@ -67,7 +67,7 @@ function ProjectsPage() {
     name: '',
     description: '',
   })
-  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; projectId: number; projectName: string } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; projectId: string; projectName: string } | null>(null)
   const [deleteTypedName, setDeleteTypedName] = useState('')
   const [apiKeyModal, setApiKeyModal] = useState<ApiKeyModalState>({ open: false })
 
@@ -98,7 +98,7 @@ function ProjectsPage() {
     }
   }
 
-  const openApiKeyReveal = (apiKey: string, projectId: number, projectName: string, reason: ApiKeyRevealReason) => {
+  const openApiKeyReveal = (apiKey: string, projectId: string, projectName: string, reason: ApiKeyRevealReason) => {
     setApiKeyModal({ open: true, mode: 'reveal', apiKey, projectId, projectName, reason })
   }
 
@@ -109,7 +109,7 @@ function ProjectsPage() {
     setApiKeyModal({ open: false })
   }
 
-  const startRotateApiKey = (projectId: number, projectName: string) => {
+  const startRotateApiKey = (projectId: string, projectName: string) => {
     setApiKeyModal({ open: true, mode: 'confirm', projectId, projectName })
   }
 
@@ -135,8 +135,8 @@ function ProjectsPage() {
     void copyToClipboard(apiKey, { success: 'API key copied to clipboard.', label: 'API Key' })
   }
 
-  const handleCopyProjectId = (projectId: number) => {
-    void copyToClipboard(String(projectId), { success: 'Project ID copied to clipboard.', label: 'Project ID' })
+  const handleCopyProjectId = (projectId: string) => {
+    void copyToClipboard(projectId, { success: 'Project ID copied to clipboard.', label: 'Project ID' })
   }
 
   const handleCreateProject = async () => {
@@ -159,7 +159,7 @@ function ProjectsPage() {
     }
   }
 
-  const handleDeleteProject = (projectId: number, projectName: string) => {
+  const handleDeleteProject = (projectId: string, projectName: string) => {
     setDeleteConfirm({ show: true, projectId, projectName })
     setDeleteTypedName('')
   }
@@ -508,7 +508,7 @@ interface ApiKeyDialogProps {
   onClose: () => void
   onConfirmRotate: () => void
   onCopy: (apiKey: string) => void
-  onCopyProjectId: (projectId: number) => void
+  onCopyProjectId: (projectId: string) => void
   isSubmitting: boolean
 }
 
@@ -533,7 +533,7 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleCopyProjectId = (projectId: number) => {
+  const handleCopyProjectId = (projectId: string) => {
     onCopyProjectId(projectId)
     setIdCopied(true)
     setTimeout(() => setIdCopied(false), 2000)

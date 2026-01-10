@@ -81,3 +81,5 @@ monitoring/grafana/data/
 monitoring/prometheus/data/
 
 models/
+
+backend/app/static
