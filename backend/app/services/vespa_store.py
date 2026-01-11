@@ -113,7 +113,7 @@ class VespaVectorStore:
             "document_id": document.id,
             "title": document.title,
             "content": document.content,
-            "metadata": json.dumps(document.metadata or {}),
+            "metadata": json.dumps(document.metadata_ or {}),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
             "embedding": embedding_vector,

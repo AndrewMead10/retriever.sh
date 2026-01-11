@@ -60,7 +60,7 @@ def _document_to_response(document: ProjectDocument) -> dict:
         "id": document.id,
         "content": document.content,
         "title": document.title,
-        "metadata": document.metadata or {},
+        "metadata": document.metadata_ or {},
         "created_at": document.created_at,
     }
 
@@ -126,7 +126,7 @@ async def ingest_document(
         project_id=project.id,
         title=payload.title,
         content=payload.text,
-        metadata=payload.metadata or {},
+        metadata_=payload.metadata or {},
         vespa_document_id=f"pending_{secrets.token_hex(8)}",
     )
     db.add(document)

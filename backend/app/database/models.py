@@ -174,7 +174,7 @@ class ProjectDocument(Base, AuditMixin):
     vespa_document_id = Column(String, nullable=False, unique=True)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    metadata = Column(JSONB, nullable=False, default=dict)
+    metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
     active = Column(Boolean, nullable=False, default=True)
 
     project = relationship("Project", back_populates="documents")
