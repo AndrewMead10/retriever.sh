@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: rag
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=
+      POSTGRES_PASSWORD: "SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8="
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -50,62 +50,8 @@ services:
         condition: service_healthy
     restart: "no"
 
-  backend:
-    image: dysondunbar/retriever:latest
-    ports:
-      - "5656:5656"
-    environment:
-      - JWT_SECRET=${JWT_SECRET:-8ca5b0d408d43a525f73ca345dbec25727e44c92e224c66ef2d2e3c7c136d6a5}
-      - ACCESS_TOKEN_TTL_MINUTES=${ACCESS_TOKEN_TTL_MINUTES:-15}
-      - REFRESH_TOKEN_TTL_DAYS=${REFRESH_TOKEN_TTL_DAYS:-30}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - CORS_ORIGINS=${CORS_ORIGINS:-["*"]}
-      - CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-true}
-      - ENABLE_R2_BACKUP=${ENABLE_R2_BACKUP:-false}
-      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
-      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - R2_BUCKET=${R2_BUCKET}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres:SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=@db:5432/rag}
-      - ENABLE_USER_REGISTRATION=${ENABLE_USER_REGISTRATION:-true}
-      - ENABLE_PASSWORD_RESET=${ENABLE_PASSWORD_RESET:-true}
-      - ENABLE_ADMIN_PANEL=${ENABLE_ADMIN_PANEL:-true}
-      - ENABLE_BACKUPS=${ENABLE_BACKUPS:-true}
-      - LOGFIRE_ENABLED=${LOGFIRE_ENABLED:-false}
-      - LOGFIRE_IGNORE_NO_CONFIG=${LOGFIRE_IGNORE_NO_CONFIG:-1}
-      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN}
-      - LOGFIRE_ENVIRONMENT=${LOGFIRE_ENVIRONMENT:-development}
-      - LOGFIRE_SERVICE_NAME=${LOGFIRE_SERVICE_NAME:-rag-app}
-      - SES_FROM_EMAIL=${SES_FROM_EMAIL}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
-      - GOOGLE_ALLOWED_DOMAINS=${GOOGLE_ALLOWED_DOMAINS:-[]}
-      - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
-      - POLAR_ENVIRONMENT=${POLAR_ENVIRONMENT:-production}
-      - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
-      - POLAR_PRODUCT_TINKERING_ID=${POLAR_PRODUCT_TINKERING_ID}
-      - POLAR_ORGANIZATION_SLUG=${POLAR_ORGANIZATION_SLUG}
-      - POLAR_PRODUCT_BUILDING_ID=${POLAR_PRODUCT_BUILDING_ID}
-      - POLAR_SUCCESS_URL=${POLAR_SUCCESS_URL:-http://localhost:3000/billing/success}
-      - POLAR_CANCEL_URL=${POLAR_CANCEL_URL:-http://localhost:3000/billing}
-      - POLAR_PORTAL_RETURN_URL=${POLAR_PORTAL_RETURN_URL:-http://localhost:3000/billing}
-      - VESPA_ENDPOINT=${VESPA_ENDPOINT:-http://vespa:8080}
-      - VESPA_NAMESPACE=${VESPA_NAMESPACE:-rag}
-      - VESPA_DOCUMENT_TYPE=${VESPA_DOCUMENT_TYPE:-rag_document}
-      - VESPA_RANK_PROFILE=${VESPA_RANK_PROFILE:-rag-hybrid}
-      - VESPA_TIMEOUT_SECONDS=${VESPA_TIMEOUT_SECONDS:-10}
-      - VESPA_EMBED_DIM=${VESPA_EMBED_DIM:-768}
-    depends_on:
-      db:
-        condition: service_healthy
-      vespa-init:
-        condition: service_completed_successfully
-    restart: unless-stopped
+  # Backend now runs natively via systemd (retriever.service)
+  # See /etc/systemd/system/retriever.service
 
 volumes:
   postgres-data:

@@ -1,229 +1,148 @@
 # Production Deployment Guide for retriever.sh
 
-This guide covers deploying the application with Docker, Nginx, SSL certificates, and systemd management.
+This guide covers deploying the application with native uvicorn, Docker (for databases), Nginx, SSL certificates, and systemd management.
+
+## Architecture Overview
+
+- **Backend**: FastAPI running via native uvicorn with `--reload` (managed by systemd)
+- **Databases**: PostgreSQL and Vespa run in Docker containers
+- **Frontend**: Built into backend static directory, served by FastAPI
+- **Reverse Proxy**: Nginx with SSL termination
+
+The key benefit of running uvicorn with `--reload` is that **code changes trigger automatic restart**. When you `git pull`, uvicorn detects the file changes and restarts automatically.
 
 ## Prerequisites
 
 - Ubuntu/Debian server with root access
-- Domain `retriever.sh` pointing to your server's IP address
+- Domain pointing to your server's IP address
 - Docker and Docker Compose installed
 - Nginx installed
 - Certbot installed
+- Python 3.11+ and UV installed
 
-## Quick Setup Commands
-
-If you just want to get started quickly, run these commands in order:
+## Quick Setup
 
 ```bash
 # 1. Install prerequisites
 sudo apt update
-sudo apt install -y docker.io docker-compose nginx certbot python3-certbot-nginx
+sudo apt install -y docker.io docker-compose-v2 nginx certbot python3-certbot-nginx
 
-# 2. Enable and start Docker
+# 2. Install UV (Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. Enable Docker
 sudo systemctl enable docker
 sudo systemctl start docker
 
-# 3. Navigate to project directory
-cd /root/retriever.sh
-
-# 4. Configure environment
+# 4. Navigate to project and configure
+cd <project-dir>
 cp .env.example .env
-nano .env  # Edit with your production values
+nano .env  # Edit with production values
 
-# 5. Setup Nginx
-sudo ln -s /root/retriever.sh/nginx.conf /etc/nginx/sites-available/retriever.sh
-sudo ln -s /etc/nginx/sites-available/retriever.sh /etc/nginx/sites-enabled/
-sudo nginx -t
+# 5. Start database containers
+docker compose up -d
 
-# 6. Get SSL certificate (interactive)
-sudo certbot --nginx -d retriever.sh -d www.retriever.sh -m retriverdotsh@gmail.com --agree-tos
+# 6. Build frontend
+cd frontend
+npm install
+npm run build
+cd ..
 
-# 7. Setup systemd service
+# 7. Setup systemd service (edit paths in retriever.service first)
 sudo cp retriever.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable retriever.service
-sudo systemctl start retriever.service
+sudo systemctl enable retriever
+sudo systemctl start retriever
 
-# 8. Start Nginx
-sudo systemctl restart nginx
-```
-
-## Detailed Setup Instructions
-
-### 1. Install Prerequisites
-
-```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
-
-# Install Docker
-sudo apt install -y docker.io docker-compose
-
-# Enable Docker to start on boot
-sudo systemctl enable docker
-sudo systemctl start docker
-
-# Install Nginx
-sudo apt install -y nginx
-
-# Install Certbot for SSL certificates
-sudo apt install -y certbot python3-certbot-nginx
-```
-
-### 2. Configure Environment Variables
-
-```bash
-cd /root/retriever.sh
-
-# Copy example environment file
-cp .env.example .env
-
-# Edit with your production values
-nano .env
-```
-
-**Important environment variables to configure:**
-
-```bash
-# REQUIRED: Generate a secure JWT secret
-JWT_SECRET=$(openssl rand -hex 32)
-
-# Frontend URL (your domain)
-FRONTEND_URL=https://retriever.sh
-
-# CORS (restrict in production)
-CORS_ORIGINS=["https://retriever.sh", "https://www.retriever.sh"]
-
-# Google OAuth (if using)
-GOOGLE_REDIRECT_URI=https://retriever.sh/api/auth/google/callback
-
-# Polar URLs (if using)
-POLAR_SUCCESS_URL=https://retriever.sh/billing/success
-POLAR_CANCEL_URL=https://retriever.sh/billing
-POLAR_PORTAL_RETURN_URL=https://retriever.sh/billing
-
-# Email configuration (if using SES)
-SES_FROM_EMAIL=noreply@retriever.sh
-
-# Database (default is fine for docker-compose)
-DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/rag
-```
-
-### 3. Setup Nginx Configuration
-
-```bash
-# Create symlink to Nginx sites-available
-sudo ln -s /root/retriever.sh/nginx.conf /etc/nginx/sites-available/retriever.sh
-
-# Enable the site
-sudo ln -s /etc/nginx/sites-available/retriever.sh /etc/nginx/sites-enabled/
-
-# Remove default site if it exists
+# 8. Setup Nginx
+sudo ln -sf $(pwd)/nginx.conf /etc/nginx/sites-available/retriever.sh
+sudo ln -sf /etc/nginx/sites-available/retriever.sh /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
 
-# Test Nginx configuration
-sudo nginx -t
+# 9. Get SSL certificate
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com --agree-tos
 ```
 
-### 4. Obtain SSL Certificate
+## Updating Production
 
-Before running this, make sure:
-- Your domain `retriever.sh` points to your server's IP
-- Port 80 is open in your firewall
-- Nginx is running
+### Backend Code Changes Only
+
+Because uvicorn runs with `--reload`, backend file changes trigger automatic restart:
 
 ```bash
-# Ensure Nginx is running
-sudo systemctl start nginx
-
-# Get SSL certificate (follow prompts)
-sudo certbot --nginx \
-  -d retriever.sh \
-  -d www.retriever.sh \
-  -m retriverdotsh@gmail.com \
-  --agree-tos \
-  --no-eff-email
-
-# Test auto-renewal
-sudo certbot renew --dry-run
+git pull
 ```
 
-### 5. Setup Systemd Service
+That's it. Uvicorn detects the changes and restarts automatically.
+
+### Backend Changes with New Migrations
+
+If the update includes new Alembic migrations, you need to restart the service:
 
 ```bash
-# Copy service file to systemd directory
-sudo cp retriever.service /etc/systemd/system/
+git pull
+sudo systemctl restart retriever
+```
 
-# Reload systemd to recognize the new service
-sudo systemctl daemon-reload
+Migrations run automatically on service start via `ExecStartPre`. Uvicorn's auto-reload doesn't trigger migration runs, so a manual restart is required when there are new migrations.
 
-# Enable service to start on boot
-sudo systemctl enable retriever.service
+**How to know if there are new migrations:** Check if `backend/alembic/versions/` has new files in the pull, or run `uv run alembic current` vs `uv run alembic heads` to compare.
 
-# Start the service
-sudo systemctl start retriever.service
+### Frontend Changes
 
+Frontend changes require rebuilding the static assets:
+
+```bash
+git pull
+cd frontend && npm run build
+```
+
+### Manual Migration Run (if needed)
+
+To run migrations manually without restarting the service:
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+## Service Management
+
+### Systemd Commands
+
+```bash
 # Check status
-sudo systemctl status retriever.service
+sudo systemctl status retriever
+
+# View logs (live)
+sudo journalctl -u retriever -f
+
+# View recent logs
+sudo journalctl -u retriever -n 100
+
+# Restart (only needed for .env changes or manual restart)
+sudo systemctl restart retriever
+
+# Stop
+sudo systemctl stop retriever
+
+# Start
+sudo systemctl start retriever
 ```
 
-### 6. Start and Verify Services
+### Docker Commands (Databases)
 
 ```bash
-# Restart Nginx with SSL configuration
-sudo systemctl restart nginx
-
-# Verify Nginx is running
-sudo systemctl status nginx
-
-# Check Docker containers are running
+# Check container status
 docker compose ps
 
-# View logs
-docker compose logs -f
-```
+# View database logs
+docker compose logs -f db
+docker compose logs -f vespa
 
-## Management Commands
-
-### Systemd Service Management
-
-```bash
-# Start the application
-sudo systemctl start retriever.service
-
-# Stop the application
-sudo systemctl stop retriever.service
-
-# Restart the application
-sudo systemctl restart retriever.service
-
-# Reload (pull latest images and recreate)
-sudo systemctl reload retriever.service
-
-# View status
-sudo systemctl status retriever.service
-
-# View logs
-journalctl -u retriever.service -f
-```
-
-### Docker Commands
-
-```bash
-# View running containers
-docker compose ps
-
-# View logs
-docker compose logs -f
-
-# View logs for specific service
-docker compose logs -f backend
-
-# Rebuild containers
-docker compose build --no-cache
-
-# Update deployment (use existing script)
-./update-deployment.sh
+# Restart databases (rarely needed)
+docker compose restart
 ```
 
 ### Nginx Commands
@@ -232,211 +151,159 @@ docker compose build --no-cache
 # Test configuration
 sudo nginx -t
 
-# Reload configuration (no downtime)
+# Reload (no downtime)
 sudo systemctl reload nginx
-
-# Restart Nginx
-sudo systemctl restart nginx
 
 # View logs
 sudo tail -f /var/log/nginx/retriever.sh_access.log
 sudo tail -f /var/log/nginx/retriever.sh_error.log
 ```
 
-## Updating the Application
+## The retriever.service File
 
-### Option 1: Using the update script
+The systemd service file manages the uvicorn process:
 
-```bash
-cd /root/retriever.sh
+```ini
+[Unit]
+Description=Retriever.sh Backend Service
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
 
-# Quick update (uses Docker cache)
-./update-deployment.sh
+[Service]
+Type=simple
+User=root
+WorkingDirectory=<project-dir>/backend
+EnvironmentFile=<project-dir>/.env
+ExecStart=uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+Restart=always
+RestartSec=5
 
-# Full rebuild
-./update-deployment.sh --full-rebuild
+# Wait for postgres to be ready
+ExecStartPre=/bin/bash -c 'until docker exec <db-container> pg_isready -U postgres -d rag; do sleep 2; done'
+
+# Run database migrations
+ExecStartPre=uv run alembic upgrade head
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=retriever
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-### Option 2: Using systemd
+**Note:** Replace `<project-dir>` with your absolute project path (e.g., `/root/retriever.sh`) and `<db-container>` with your postgres container name. Use absolute paths for `uv` if it's not in the system PATH.
+
+Key points:
+- `--reload` flag enables file watching for auto-restart on code changes
+- First `ExecStartPre` waits for PostgreSQL to be ready
+- Second `ExecStartPre` runs Alembic migrations automatically on every service start
+- `Restart=always` ensures the service restarts if it crashes
+- Logs go to journald (view with `journalctl -u retriever`)
+
+## Environment Configuration
+
+Key variables to configure in `.env`:
 
 ```bash
-# Pull latest code
-cd /root/retriever.sh
-git pull
+# Required
+JWT_SECRET=your-secure-random-secret  # Generate with: openssl rand -hex 32
 
-# Reload the service (rebuilds and restarts)
-sudo systemctl reload retriever.service
-```
+# URLs
+FRONTEND_URL=https://yourdomain.com
+CORS_ORIGINS=["https://yourdomain.com"]
 
-### Option 3: Manual update
+# Database (matches docker-compose.yml)
+DATABASE_URL=postgresql+psycopg://postgres:your-password@localhost:5432/rag
 
-```bash
-cd /root/retriever.sh
+# OAuth (if using)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=https://yourdomain.com/api/auth/google/callback
 
-# Pull latest code
-git pull
-
-# Pull latest images
-docker compose pull
-
-# Rebuild and restart
-docker compose up -d --build --force-recreate
-```
-
-## Database Backups
-
-The application includes automatic backup functionality. Backups are stored in the PostgreSQL container volume.
-
-### Enable R2 Backups (Optional)
-
-Edit `.env`:
-
-```bash
-ENABLE_R2_BACKUP=true
-R2_ACCOUNT_ID=your-account-id
-R2_ACCESS_KEY_ID=your-access-key
-R2_SECRET_ACCESS_KEY=your-secret-key
-R2_BUCKET=retriever-backups
-```
-
-Then restart the service:
-
-```bash
-sudo systemctl restart retriever.service
+# Billing (if using Polar)
+POLAR_ACCESS_TOKEN=...
+POLAR_WEBHOOK_SECRET=...
+POLAR_SUCCESS_URL=https://yourdomain.com/billing/success
+POLAR_CANCEL_URL=https://yourdomain.com/billing
 ```
 
 ## Monitoring
 
-### Check Application Health
+### Health Checks
 
 ```bash
-# Check if the application is responding
-curl -I https://retriever.sh/health
+# Check if backend is responding
+curl http://localhost:5656/health
 
-# Check if backend is running
-curl -I http://localhost:5656/health
+# Check via Nginx (with SSL)
+curl -I https://yourdomain.com/health
 ```
 
-### View Docker Resource Usage
-
-```bash
-docker stats
-```
-
-### View Logs
+### Log Monitoring
 
 ```bash
 # Application logs
-docker compose logs -f
+sudo journalctl -u retriever -f
 
 # Nginx access logs
 sudo tail -f /var/log/nginx/retriever.sh_access.log
 
-# Nginx error logs
-sudo tail -f /var/log/nginx/retriever.sh_error.log
-
-# Systemd service logs
-journalctl -u retriever.service -f
-```
-
-## Firewall Configuration
-
-Make sure these ports are open:
-
-```bash
-# Allow HTTP (for Certbot renewal)
-sudo ufw allow 80/tcp
-
-# Allow HTTPS
-sudo ufw allow 443/tcp
-
-# Allow SSH (if not already allowed)
-sudo ufw allow 22/tcp
-
-# Enable firewall
-sudo ufw enable
+# Database logs
+docker compose logs -f db
 ```
 
 ## Troubleshooting
 
-### Application won't start
+### Backend Won't Start
 
 ```bash
 # Check service status
-sudo systemctl status retriever.service
+sudo systemctl status retriever
 
-# Check Docker logs
-docker compose logs
+# Check if postgres is ready
+docker exec <db-container> pg_isready -U postgres -d rag
 
-# Verify .env configuration
-cat .env
-
-# Check if ports are available
+# Check port availability
 sudo netstat -tlnp | grep 5656
+```
+
+### Auto-Restart Not Working
+
+Verify uvicorn has the `--reload` flag:
+
+```bash
+systemctl cat retriever | grep ExecStart
+# Should show: --reload
+```
+
+If missing, update the service file and reload:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart retriever
 ```
 
 ### SSL Certificate Issues
 
 ```bash
-# Test certificate renewal
+# Test renewal
 sudo certbot renew --dry-run
 
-# Force certificate renewal
+# Force renewal
 sudo certbot renew --force-renewal
 
 # Check certificate status
 sudo certbot certificates
 ```
 
-### Nginx Issues
-
-```bash
-# Test configuration
-sudo nginx -t
-
-# Check error logs
-sudo tail -f /var/log/nginx/error.log
-
-# Verify site is enabled
-ls -la /etc/nginx/sites-enabled/
-```
-
-### Database Issues
-
-```bash
-# Access database container
-docker compose exec db psql -U postgres -d rag
-
-# Check database logs
-docker compose logs db
-
-# Reset database (CAUTION: This deletes all data)
-docker compose down -v
-docker compose up -d
-```
-
 ## Security Checklist
 
-- [ ] Changed `JWT_SECRET` to a secure random value
-- [ ] Updated `CORS_ORIGINS` to only allow your domain
-- [ ] Configured firewall (ufw) to only allow necessary ports
-- [ ] SSL certificate is installed and auto-renewing
-- [ ] Changed default database password in production
-- [ ] Configured proper logging
-- [ ] Set up monitoring/alerting
-- [ ] Regular backups enabled
-- [ ] Kept system and Docker images updated
-
-## Additional Resources
-
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Nginx Documentation](https://nginx.org/en/docs/)
-- [Certbot Documentation](https://certbot.eff.org/)
-- [Systemd Service Documentation](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
-
-## Support
-
-For issues specific to this deployment, check:
-- Application logs: `docker compose logs -f`
-- Systemd logs: `journalctl -u retriever.service -f`
-- Nginx logs: `/var/log/nginx/retriever.sh_*.log`
+- [ ] `JWT_SECRET` set to a secure random value
+- [ ] `CORS_ORIGINS` restricted to your domain only
+- [ ] Database password changed from default
+- [ ] Firewall configured (ports 22, 80, 443 only)
+- [ ] SSL certificate installed and auto-renewing
+- [ ] Regular backups configured

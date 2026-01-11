@@ -65,18 +65,39 @@ Vite runs at `http://localhost:3000` and proxies `/api` to the backend on port 5
 
 For production builds, run `npm run build` from `frontend/`. The compiled assets are written directly to `backend/app/static` so the FastAPI server can serve the SPA.
 
-### 4. Deployment (no Docker)
+### 4. Production Deployment
 
-```
-git pull
+The production deployment uses native uvicorn (managed by systemd) with PostgreSQL and Vespa running in Docker.
+
+**Initial setup:**
+```bash
+# Start database containers
+docker compose up -d
+
+# Build frontend
 cd frontend && npm install && npm run build
-cd ../backend
-uv sync
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+
+# Install systemd service
+sudo cp retriever.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable retriever
+sudo systemctl start retriever
 ```
 
-Running `uvicorn` with `--reload` is the default deployment mode for this repo.
+**Updating production:**
+```bash
+# Backend code only - uvicorn auto-restarts
+git pull
+
+# Backend + new migrations - restart triggers migration run
+git pull
+sudo systemctl restart retriever
+
+# Frontend changes
+cd frontend && npm run build
+```
+
+Uvicorn's `--reload` flag auto-restarts on code changes. Migrations run automatically on service start via `ExecStartPre`.
 
 ### 5. Polar Webhooks (optional)
 

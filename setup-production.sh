@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Production Setup Script for retriever.sh
-# This script automates the deployment setup with Docker, Nginx, SSL, and systemd
+# This script automates the deployment setup with native uvicorn, Docker (databases), Nginx, and SSL
 
 set -e  # Exit on any error
 
@@ -20,6 +20,11 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Retriever.sh Production Setup${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
+echo "Architecture:"
+echo "  - Backend: Native uvicorn with --reload (systemd)"
+echo "  - Databases: PostgreSQL + Vespa (Docker)"
+echo "  - Frontend: Built into backend static directory"
+echo ""
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -28,22 +33,25 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Step 1: Install prerequisites
-echo -e "${YELLOW}[1/8] Installing prerequisites...${NC}"
+echo -e "${YELLOW}[1/9] Installing prerequisites...${NC}"
 apt update
-apt install -y nginx certbot python3-certbot-nginx ufw
+apt install -y nginx certbot python3-certbot-nginx ufw docker.io docker-compose-v2 nodejs npm
 
-# Step 2: Check Docker is installed
-echo -e "${YELLOW}[2/8] Checking Docker...${NC}"
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
-    exit 1
+# Install UV if not present
+if ! command -v uv &> /dev/null; then
+    echo "Installing UV..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# Step 2: Enable Docker
+echo -e "${YELLOW}[2/9] Enabling Docker...${NC}"
 systemctl enable docker
 systemctl start docker
 echo -e "${GREEN}Docker is ready${NC}"
 
 # Step 3: Configure environment
-echo -e "${YELLOW}[3/8] Configuring environment...${NC}"
+echo -e "${YELLOW}[3/9] Configuring environment...${NC}"
 cd "$PROJECT_DIR"
 
 if [ ! -f .env ]; then
@@ -69,15 +77,36 @@ else
 fi
 
 # Step 4: Configure firewall
-echo -e "${YELLOW}[4/8] Configuring firewall...${NC}"
+echo -e "${YELLOW}[4/9] Configuring firewall...${NC}"
 ufw --force enable
 ufw allow 22/tcp   # SSH
 ufw allow 80/tcp   # HTTP
 ufw allow 443/tcp  # HTTPS
 echo -e "${GREEN}Firewall configured${NC}"
 
-# Step 5: Setup Nginx (before SSL)
-echo -e "${YELLOW}[5/8] Setting up Nginx...${NC}"
+# Step 5: Start database containers
+echo -e "${YELLOW}[5/9] Starting database containers (PostgreSQL + Vespa)...${NC}"
+cd "$PROJECT_DIR"
+docker compose up -d
+echo -e "${GREEN}Database containers started${NC}"
+
+# Wait for postgres to be ready
+echo -e "${YELLOW}Waiting for PostgreSQL to be ready...${NC}"
+until docker exec retrieversh-db-1 pg_isready -U postgres -d rag 2>/dev/null; do
+    sleep 2
+done
+echo -e "${GREEN}PostgreSQL is ready${NC}"
+
+# Step 6: Build frontend
+echo -e "${YELLOW}[6/9] Building frontend...${NC}"
+cd "$PROJECT_DIR/frontend"
+npm install
+npm run build
+cd "$PROJECT_DIR"
+echo -e "${GREEN}Frontend built into backend static directory${NC}"
+
+# Step 7: Setup Nginx (before SSL)
+echo -e "${YELLOW}[7/9] Setting up Nginx...${NC}"
 
 # Create temporary HTTP-only config for Certbot
 TEMP_NGINX_CONFIG="/etc/nginx/sites-available/retriever.sh.temp"
@@ -112,19 +141,24 @@ nginx -t
 systemctl restart nginx
 echo -e "${GREEN}Nginx configured with temporary HTTP config${NC}"
 
-# Step 6: Start Docker containers (needed for Certbot to work)
-echo -e "${YELLOW}[6/8] Starting Docker containers...${NC}"
-cd "$PROJECT_DIR"
-docker compose -f docker-compose.yml pull
-docker compose -f docker-compose.yml up -d
-echo -e "${GREEN}Docker containers started${NC}"
+# Step 8: Setup systemd service for uvicorn
+echo -e "${YELLOW}[8/9] Setting up systemd service...${NC}"
+cp "$PROJECT_DIR/retriever.service" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable retriever.service
+systemctl start retriever.service
+echo -e "${GREEN}Systemd service configured and started${NC}"
 
 # Wait for backend to be ready
 echo -e "${YELLOW}Waiting for backend to start...${NC}"
-sleep 10
+sleep 5
+until curl -s http://127.0.0.1:5656/health > /dev/null 2>&1; do
+    sleep 2
+done
+echo -e "${GREEN}Backend is ready${NC}"
 
-# Step 7: Obtain SSL certificate
-echo -e "${YELLOW}[7/8] Obtaining SSL certificate...${NC}"
+# Step 9: Obtain SSL certificate
+echo -e "${YELLOW}[9/9] Obtaining SSL certificate...${NC}"
 certbot --nginx \
     -d "$DOMAIN" \
     -d "www.$DOMAIN" \
@@ -147,21 +181,6 @@ else
     echo "sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN -m $EMAIL --agree-tos"
 fi
 
-# Step 8: Setup systemd service
-echo -e "${YELLOW}[8/8] Setting up systemd service...${NC}"
-cp "$PROJECT_DIR/retriever.service" /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable retriever.service
-
-# Stop docker compose started containers (systemd will manage them)
-cd "$PROJECT_DIR"
-docker compose -f docker-compose.yml down
-
-# Start via systemd
-systemctl start retriever.service
-
-echo -e "${GREEN}Systemd service configured and started${NC}"
-
 # Final status check
 echo ""
 echo -e "${GREEN}========================================${NC}"
@@ -169,36 +188,30 @@ echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${GREEN}Service Status:${NC}"
-systemctl status retriever.service --no-pager -l
+systemctl status retriever.service --no-pager -l | head -15
 
 echo ""
 echo -e "${GREEN}Docker Containers:${NC}"
-docker compose -f docker-compose.yml ps
+docker compose ps
 
 echo ""
-echo -e "${GREEN}Next Steps:${NC}"
-echo "1. Review and update .env file with your API keys and configurations:"
-echo "   nano $PROJECT_DIR/.env"
+echo -e "${GREEN}How Updates Work:${NC}"
+echo "  Backend runs uvicorn with --reload flag."
+echo "  When you 'git pull', uvicorn auto-restarts."
 echo ""
-echo "2. Restart the service after updating .env:"
-echo "   sudo systemctl restart retriever.service"
-echo ""
-echo "3. Check logs:"
-echo "   docker compose -f docker-compose.yml logs -f"
-echo ""
-echo "4. Access your application:"
-echo "   https://$DOMAIN"
+echo "  For backend changes:  git pull"
+echo "  For frontend changes: git pull && cd frontend && npm run build"
 echo ""
 echo -e "${GREEN}Management Commands:${NC}"
-echo "  sudo systemctl start retriever.service        - Start the service"
-echo "  sudo systemctl stop retriever.service         - Stop the service"
-echo "  sudo systemctl restart retriever.service      - Restart the service"
-echo "  sudo systemctl status retriever.service       - Check status"
-echo "  docker compose -f docker-compose.yml logs -f  - View logs"
+echo "  sudo systemctl status retriever    - Check status"
+echo "  sudo journalctl -u retriever -f    - View logs"
+echo "  sudo systemctl restart retriever   - Manual restart (rarely needed)"
+echo ""
+echo -e "${GREEN}Access your application:${NC}"
+echo "  https://$DOMAIN"
 echo ""
 echo -e "${YELLOW}Don't forget to:${NC}"
 echo "  - Update .env with your actual API keys and secrets"
 echo "  - Configure Google OAuth credentials if needed"
-echo "  - Setup email (SES) if using password reset"
 echo "  - Configure Polar payment settings if needed"
 echo ""

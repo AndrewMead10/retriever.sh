@@ -21,7 +21,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def _setup_extensions(dbapi_conn, connection_record):
     with dbapi_conn.cursor() as cur:
         cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
-    register_vector(dbapi_conn)
 
 @contextmanager
 def get_db_session():

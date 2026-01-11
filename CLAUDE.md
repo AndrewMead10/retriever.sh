@@ -26,8 +26,8 @@ This template implements a modern full-stack application with:
 
 - **Backend**: FastAPI with SQLAlchemy, JWT authentication, structured logging, and UV for dependency management 
 - **Frontend**: Vite, using React with TypeScript, TanStack Router/Query, ShadCN, Tailwind CSS
-- **Database**: SQLite with Alembic migrations
-- **Deployment**: Uvicorn with frontend assets built into the backend static directory
+- **Database**: PostgreSQL (via Docker) with Alembic migrations, Vespa for vector search (via Docker)
+- **Deployment**: Native uvicorn with `--reload` for auto-restart, frontend assets built into backend static directory
 
 ## Quick Start
 
@@ -64,33 +64,70 @@ The app in development will have a seperate frontend and backend running, but fo
    - Backend API: http://localhost:5656
    - API Docs: http://localhost:5656/docs
 
-### Production Deployment (no Docker)
+### Production Deployment
 
-1. **Build frontend into backend static assets**:
+The production deployment uses:
+- **Backend**: Native uvicorn with `--reload` flag (managed by systemd)
+- **Databases**: PostgreSQL and Vespa run in Docker containers (via docker-compose.yml)
+
+#### Initial Setup
+
+1. **Start database containers**:
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Build frontend into backend static assets**:
    ```bash
    cd frontend
    npm install
    npm run build
    ```
 
-2. **Run backend**:
+3. **Install and start the systemd service**:
    ```bash
-   cd backend
-   uv sync
-   uv run alembic upgrade head
-   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+   sudo cp retriever.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable retriever
+   sudo systemctl start retriever
    ```
 
-3. **Access the application**:
+4. **Access the application**:
    - Application: http://localhost:5656
    - API Docs: http://localhost:5656/docs
 
-### Updating Production Deployment
+#### Updating Production (Auto-Restart)
 
-For updating a running production deployment:
+Because uvicorn runs with `--reload`, it watches for file changes and automatically restarts when code changes.
+
+**Backend code changes only:**
+```bash
+git pull
+```
+That's it. Uvicorn detects the file changes and restarts automatically.
+
+**Backend changes with new migrations:**
+```bash
+git pull
+sudo systemctl restart retriever
+```
+Migrations run automatically on service start via `ExecStartPre`. A restart is needed because uvicorn's auto-reload doesn't trigger migration runs.
+
+**Frontend changes:**
+```bash
+git pull
+cd frontend && npm run build
+```
+
+#### Service Management
 
 ```bash
-./update-deployment.sh
+# View status and logs
+sudo systemctl status retriever
+sudo journalctl -u retriever -f
+
+# Restart manually if needed
+sudo systemctl restart retriever
 ```
 
 ## Architecture

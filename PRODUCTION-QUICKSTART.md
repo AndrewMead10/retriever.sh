@@ -1,181 +1,87 @@
 # Production Deployment Quickstart
 
-## One-Command Setup
+## Architecture
 
-For a fully automated production deployment with Docker, Nginx, SSL, and systemd:
+- **Backend**: Native uvicorn with `--reload` (managed by systemd)
+- **Databases**: PostgreSQL + Vespa in Docker
+- **Frontend**: Built into backend static directory
+
+The `--reload` flag means **backend auto-restarts when files change**. Just `git pull` to deploy backend updates.
+
+## Quick Setup
 
 ```bash
-sudo ./setup-production.sh
+# 1. Start database containers
+docker compose up -d
+
+# 2. Build frontend
+cd frontend && npm install && npm run build && cd ..
+
+# 3. Install systemd service
+sudo cp retriever.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable retriever
+sudo systemctl start retriever
 ```
 
-This script will:
-1. ✅ Install Docker, Docker Compose, Nginx, and Certbot
-2. ✅ Configure Docker to start on boot
-3. ✅ Create and configure `.env` file with secure defaults
-4. ✅ Configure UFW firewall (ports 22, 80, 443)
-5. ✅ Setup Nginx as reverse proxy
-6. ✅ Start Docker containers
-7. ✅ Obtain SSL certificate from Let's Encrypt
-8. ✅ Configure systemd service for auto-start on boot
+## Updating Production
 
-**Domain:** retriever.sh
-**SSL Email:** retriverdotsh@gmail.com
-
-## After Setup
-
-### 1. Update Environment Variables
-
-The script creates a `.env` file with secure defaults, but you need to add your API keys:
+### Backend Code Only
 
 ```bash
-nano .env
+git pull
+# That's it - uvicorn auto-restarts
 ```
 
-Update these values:
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (if using Google OAuth)
-- `SES_FROM_EMAIL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (if using email)
-- `POLAR_*` settings (if using Polar payments)
-- Any other service credentials
-
-### 2. Restart After Configuration
+### Backend + New Migrations
 
 ```bash
-sudo systemctl restart retriever.service
+git pull
+sudo systemctl restart retriever
+# Migrations run automatically on service start
 ```
 
-### 3. Verify Deployment
+### Frontend Changes
 
 ```bash
-# Check service status
-sudo systemctl status retriever.service
+git pull
+cd frontend && npm run build
+```
 
-# Check containers
+## Common Commands
+
+```bash
+# Status & logs
+sudo systemctl status retriever
+sudo journalctl -u retriever -f
+
+# Restart (only if needed)
+sudo systemctl restart retriever
+
+# Database containers
 docker compose ps
-
-# View logs
-docker compose logs -f
-
-# Test the application
-curl -I https://retriever.sh/health
+docker compose logs -f db
 ```
 
-## Management Commands
-
-### Application Control
-
-```bash
-# Start
-sudo systemctl start retriever.service
-
-# Stop
-sudo systemctl stop retriever.service
-
-# Restart
-sudo systemctl restart retriever.service
-
-# Status
-sudo systemctl status retriever.service
-
-# Logs
-journalctl -u retriever.service -f
-```
-
-### Updates
-
-```bash
-# Option 1: Using the update script
-./update-deployment.sh
-
-# Option 2: Using systemd
-git pull
-sudo systemctl reload retriever.service
-
-# Option 3: Manual
-git pull
-docker compose up -d --build --force-recreate
-```
-
-### View Logs
-
-```bash
-# Application logs
-docker compose logs -f
-
-# Specific service
-docker compose logs -f backend
-
-# Nginx logs
-sudo tail -f /var/log/nginx/retriever.sh_access.log
-sudo tail -f /var/log/nginx/retriever.sh_error.log
-```
-
-## File Structure
+## Files
 
 ```
-/root/retriever.sh/
-├── setup-production.sh       # Automated setup script (run this)
-├── DEPLOYMENT.md             # Detailed deployment guide
-├── PRODUCTION-QUICKSTART.md  # This file
-├── nginx.conf               # Nginx configuration
-├── retriever.service        # Systemd service file
-├── docker-compose.yml       # Docker Compose configuration
-├── .env                     # Environment variables (created by setup)
-└── update-deployment.sh     # Update script
+retriever.service    # Systemd service (uvicorn with --reload)
+docker-compose.yml   # PostgreSQL + Vespa containers
+nginx.conf           # Reverse proxy config
+.env                 # Environment variables
 ```
-
-## System Services
-
-After setup, your system will have:
-
-- **Nginx** → Reverse proxy on ports 80/443
-- **Docker** → Container runtime
-- **retriever.service** → Systemd service managing Docker Compose
-- **Certbot** → Auto-renews SSL certificates
 
 ## Troubleshooting
 
-### Service won't start
+**Auto-restart not working?** Check for `--reload` flag:
 ```bash
-sudo systemctl status retriever.service
-docker compose logs
+systemctl cat retriever | grep ExecStart
 ```
 
-### SSL issues
+**Backend won't start?** Check postgres is ready:
 ```bash
-sudo certbot renew --dry-run
-sudo certbot certificates
+docker exec <db-container> pg_isready -U postgres -d rag
 ```
 
-### Nginx issues
-```bash
-sudo nginx -t
-sudo tail -f /var/log/nginx/error.log
-```
-
-### Reset everything
-```bash
-sudo systemctl stop retriever.service
-docker compose down -v
-sudo ./setup-production.sh
-```
-
-## Security Checklist
-
-- [x] Firewall configured (UFW)
-- [x] SSL certificate installed
-- [x] JWT_SECRET auto-generated
-- [ ] Updated `.env` with production API keys
-- [ ] Changed database password (if needed)
-- [ ] CORS restricted to your domain
-- [ ] Regular backups enabled
-- [ ] Monitoring setup
-
-## Next Steps
-
-1. **Configure your services** - Update `.env` with your API keys
-2. **Restart** - `sudo systemctl restart retriever.service`
-3. **Test** - Visit https://retriever.sh
-4. **Monitor** - Setup monitoring and alerts
-5. **Backup** - Configure R2 backups (optional)
-
-For detailed documentation, see [DEPLOYMENT.md](./DEPLOYMENT.md)
+For detailed docs, see [DEPLOYMENT.md](./DEPLOYMENT.md)
