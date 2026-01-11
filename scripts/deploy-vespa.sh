@@ -60,3 +60,4 @@ done
 
 echo "✓ Vespa application is fully deployed and active!"
 echo "Ready to accept documents and queries."
+

@@ -29,6 +29,8 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Alembic history linearized (Nov 16, 2025): migrations now form a single chain (`0002_account_plan_structures` → `0003_replace_stripe_with_polar` → `0003_postgres_vector_store` → `0004_add_email_verification` → `0004_remove_vector_topups` → `0005_add_active_columns` → `0006_remove_account_tables`) so `alembic upgrade head` no longer errors with "Multiple head revisions."
 - Deployment update (Jan 8, 2026): `npm run build` now outputs directly to `backend/app/static`, and production deploys are expected to run `uv run uvicorn app.main:app --reload` without Docker; update flow is pull code, build frontend, then restart uvicorn.
 - RAG API simplification (Jan 11, 2026): document `url` and `published_at` fields are removed; ingest now accepts optional `metadata` (stored as JSONB and indexed in Vespa), and responses include `metadata` plus `created_at`.
+- Deployment update (Jan 11, 2026): Production uses native uvicorn with `--reload` (managed by systemd `retriever.service`). PostgreSQL and Vespa run in Docker via `docker-compose.yml`. Uvicorn watches for file changes, so `git pull` automatically triggers backend restart. Frontend changes require `npm run build`. No update-deployment.sh script needed.
+- Migration auto-run (Jan 11, 2026): `retriever.service` now includes `ExecStartPre` to run `alembic upgrade head` on every service start. For code-only changes, `git pull` is enough (uvicorn auto-restarts). For changes with new migrations, run `sudo systemctl restart retriever` to trigger migration execution.
 
 ---
 
@@ -46,8 +48,8 @@ This template implements a modern full-stack application with:
 
 - **Backend**: FastAPI with SQLAlchemy, JWT authentication, structured logging, and UV for dependency management 
 - **Frontend**: Vite, using React with TypeScript, TanStack Router/Query, ShadCN, Tailwind CSS
-- **Database**: PostgreSQL (application + `project_documents`) plus Vespa (`rag_document` schema) with Alembic migrations
-- **Deployment**: Uvicorn with frontend assets built into the backend static directory
+- **Database**: PostgreSQL (via Docker) + Vespa (via Docker) with Alembic migrations
+- **Deployment**: Native uvicorn with `--reload` for auto-restart, frontend assets built into backend static directory
 
 ## Quick Start
 
@@ -84,10 +86,22 @@ The app in development will have a seperate frontend and backend running, but fo
 
 ### Updating Production Deployment
 
-For updating a running production deployment:
+Because uvicorn runs with `--reload`, backend file changes trigger automatic restart.
 
+**Backend code only:**
 ```bash
-./update-deployment.sh
+git pull  # uvicorn auto-restarts when files change
+```
+
+**Backend + new migrations:**
+```bash
+git pull
+sudo systemctl restart retriever  # migrations run on service start
+```
+
+**Frontend changes:**
+```bash
+cd frontend && npm run build
 ```
 
 ## Architecture

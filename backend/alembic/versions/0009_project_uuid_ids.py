@@ -49,7 +49,17 @@ def upgrade() -> None:
     )
 
     # 2. Migrate projects data, generating UUIDs and keeping a mapping
-    old_projects = conn.execute(sa.text("SELECT * FROM projects")).fetchall()
+    # Use explicit column names to avoid positional ordering issues
+    old_projects = conn.execute(
+        sa.text("""
+            SELECT id, user_id, name, description, slug,
+                   embedding_provider, embedding_model, embedding_model_repo, embedding_model_file,
+                   embedding_dim, hybrid_weight_vector, hybrid_weight_text,
+                   top_k_default, vector_search_k, vector_store_path, vector_count,
+                   ingest_api_key_hash, last_ingest_at, active, created_at, updated_at
+            FROM projects
+        """)
+    ).fetchall()
     id_mapping = {}  # old_id -> new_uuid
 
     for row in old_projects:
@@ -112,7 +122,13 @@ def upgrade() -> None:
     )
 
     # Migrate project_api_keys data with new project UUIDs
-    old_api_keys = conn.execute(sa.text("SELECT * FROM project_api_keys")).fetchall()
+    old_api_keys = conn.execute(
+        sa.text("""
+            SELECT id, project_id, name, prefix, hashed_key,
+                   last_used_at, revoked, created_at, updated_at
+            FROM project_api_keys
+        """)
+    ).fetchall()
     for row in old_api_keys:
         old_project_id = row[1]
         if old_project_id in id_mapping:
@@ -155,7 +171,13 @@ def upgrade() -> None:
     )
 
     # Migrate project_documents data with new project UUIDs
-    old_documents = conn.execute(sa.text("SELECT * FROM project_documents")).fetchall()
+    old_documents = conn.execute(
+        sa.text("""
+            SELECT id, project_id, vespa_document_id, title, content,
+                   url, published_at, active, created_at, updated_at
+            FROM project_documents
+        """)
+    ).fetchall()
     for row in old_documents:
         old_project_id = row[1]
         if old_project_id in id_mapping:

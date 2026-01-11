@@ -1,0 +1,28 @@
+[Unit]
+Description=Retriever.sh Backend Service
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/retriever.sh/backend
+EnvironmentFile=/root/retriever.sh/.env
+ExecStart=/root/.local/bin/uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
+Restart=always
+RestartSec=5
+
+# Wait for postgres to be ready
+ExecStartPre=/bin/bash -c 'until docker exec retrieversh-db-1 pg_isready -U postgres -d rag; do sleep 2; done'
+
+# Run database migrations
+ExecStartPre=/root/.local/bin/uv run alembic upgrade head
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=retriever
+
+[Install]
+WantedBy=multi-user.target
