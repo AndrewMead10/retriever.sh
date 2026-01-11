@@ -3,7 +3,7 @@
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0011_project_document_metadata_guard"
+revision = "0011_doc_metadata_guard"
 down_revision = "0010_document_metadata"
 branch_labels = None
 depends_on = None
