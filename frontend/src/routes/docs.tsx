@@ -104,10 +104,10 @@ function DocsPage() {
     ingest: {
       python: `import requests
 
-def ingest_document(project_id: int, api_key: str, payload: dict):
+def ingest_document(project_id: str, api_key: str, payload: dict):
     """Ingest a document into a project"""
     response = requests.post(
-        f"http://localhost:5656/api/rag/projects/{project_id}/documents",
+        f"https://retriever.sh/api/rag/projects/{project_id}/documents",
         headers={
             "X-Project-Key": api_key,
             "Content-Type": "application/json"
@@ -121,10 +121,12 @@ def ingest_document(project_id: int, api_key: str, payload: dict):
 document = {
     "title": "Python Installation Guide",
     "text": "To install Python, visit python.org...",
-    "url": "https://python.org/downloads/",
-    "published_at": "2025-01-15T12:00:00Z"
+    "metadata": {
+        "source": "https://python.org/downloads/",
+        "category": "docs"
+    }
 }
-result = ingest_document(123, "proj_...your_key...", document)
+result = ingest_document("your-project-uuid", "proj_...your_key...", document)
 print(f"Document ID: {result['id']}")`,
       javascript: `async function ingestDocument(projectId, apiKey, payload) {
   // Ingest a document into a project
@@ -149,29 +151,33 @@ print(f"Document ID: {result['id']}")`,
 const document = {
   title: 'Python Installation Guide',
   text: 'To install Python, visit python.org...',
-  url: 'https://python.org/downloads/',
-  published_at: '2025-01-15T12:00:00Z'
+  metadata: {
+    source: 'https://python.org/downloads/',
+    category: 'docs'
+  }
 };
-const result = await ingestDocument(123, 'proj_...your_key...', document);
+const result = await ingestDocument('your-project-uuid', 'proj_...your_key...', document);
 console.log('Document ID:', result.id);`,
       curl: `# Ingest a document into a project
-curl -X POST http://localhost:5656/api/rag/projects/123/documents \\
+curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/documents \\
   -H "X-Project-Key: proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Python Installation Guide",
     "text": "To install Python, visit python.org...",
-    "url": "https://python.org/downloads/",
-    "published_at": "2025-01-15T12:00:00Z"
+    "metadata": {
+      "source": "https://python.org/downloads/",
+      "category": "docs"
+    }
   }'`,
     },
     query: {
       python: `import requests
 
-def query_project(project_id: int, api_key: str, query: str, top_k: int = 5):
+def query_project(project_id: str, api_key: str, query: str, top_k: int = 5):
     """Query a project using hybrid retrieval"""
     response = requests.post(
-        f"http://localhost:5656/api/rag/projects/{project_id}/query",
+        f"https://retriever.sh/api/rag/projects/{project_id}/query",
         headers={
             "X-Project-Key": api_key,
             "Content-Type": "application/json"
@@ -182,7 +188,7 @@ def query_project(project_id: int, api_key: str, query: str, top_k: int = 5):
     return response.json()
 
 # Usage
-results = query_project(123, "proj_...your_key...", "How do I install Python?", top_k=5)
+results = query_project("your-project-uuid", "proj_...your_key...", "How do I install Python?", top_k=5)
 for result in results["results"]:
     print(f"{result['title']}: {result['content'][:120]}...")`,
       javascript: `async function queryProject(projectId, apiKey, payload) {
@@ -205,7 +211,7 @@ for result in results["results"]:
 }
 
 // Usage
-const results = await queryProject(123, 'proj_...your_key...', {
+const results = await queryProject('your-project-uuid', 'proj_...your_key...', {
   query: 'How do I install Python?',
   top_k: 5,
   vector_k: 40
@@ -214,7 +220,7 @@ results.results.forEach(result => {
   console.log(\`\${result.title}: \${result.content.slice(0, 120)}...\`);
 });`,
       curl: `# Query a project using hybrid retrieval
-curl -X POST http://localhost:5656/api/rag/projects/123/query \\
+curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/query \\
   -H "X-Project-Key: proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -226,17 +232,17 @@ curl -X POST http://localhost:5656/api/rag/projects/123/query \\
     delete: {
       python: `import requests
 
-def delete_vector(project_id: int, document_id: int, api_key: str) -> None:
+def delete_vector(project_id: str, document_id: int, api_key: str) -> None:
     """Delete a document vector from a project"""
     response = requests.delete(
-        f"http://localhost:5656/api/rag/projects/{project_id}/vectors/{document_id}",
+        f"https://retriever.sh/api/rag/projects/{project_id}/vectors/{document_id}",
         headers={"X-Project-Key": api_key},
     )
     if response.status_code != 204:
         raise Exception(f"Delete failed: {response.text}")
 
 # Usage
-delete_vector(123, 456, "proj_...your_key...")`,
+delete_vector("your-project-uuid", 456, "proj_...your_key...")`,
       javascript: `async function deleteVector(projectId, documentId, apiKey) {
   // Delete a document vector from a project
   const response = await fetch(
@@ -253,9 +259,9 @@ delete_vector(123, 456, "proj_...your_key...")`,
 }
 
 // Usage
-await deleteVector(123, 456, 'proj_...your_key...');`,
+await deleteVector('your-project-uuid', 456, 'proj_...your_key...');`,
       curl: `# Delete a document vector from a project
-curl -X DELETE http://localhost:5656/api/rag/projects/123/vectors/456 \\
+curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/456 \\
   -H "X-Project-Key: proj_...your_key..."`,
     },
   }
@@ -354,7 +360,7 @@ curl -X DELETE http://localhost:5656/api/rag/projects/123/vectors/456 \\
                 <h3 className="text-xl font-bold mb-3">2. Add the header</h3>
                 <p className="text-muted-foreground">
                   Send the key as <span className="font-mono">X-Project-Key</span> and pass your project ID in the URL.
-                  Local dev base URL: <span className="font-mono">http://localhost:5656</span>.
+                  Local dev base URL: <span className="font-mono">https://retriever.sh</span>.
                 </p>
               </div>
             </div>
@@ -432,8 +438,10 @@ curl -X DELETE http://localhost:5656/api/rag/projects/123/vectors/456 \\
   "id": 456,
   "content": "To install Python, visit python.org...",
   "title": "Python Installation Guide",
-  "url": "https://python.org/downloads/",
-  "published_at": "2025-01-15T12:00:00Z",
+  "metadata": {
+    "source": "https://python.org/downloads/",
+    "category": "docs"
+  },
   "created_at": "2025-01-20T18:42:11.214Z"
 }`}
                   </SyntaxHighlighter>
@@ -514,8 +522,10 @@ curl -X DELETE http://localhost:5656/api/rag/projects/123/vectors/456 \\
       "id": 456,
       "content": "To install Python, visit python.org...",
       "title": "Python Installation Guide",
-      "url": "https://python.org/downloads/",
-      "published_at": "2025-01-15T12:00:00Z",
+      "metadata": {
+        "source": "https://python.org/downloads/",
+        "category": "docs"
+      },
       "created_at": "2025-01-20T18:42:11.214Z"
     }
   ]

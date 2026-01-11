@@ -105,8 +105,10 @@ X-Project-Key: proj_...
 {
   "title": "Doc title",
   "text": "Full text",
-  "url": "https://example.com",
-  "published_at": "2025-10-27T00:00:00Z"
+  "metadata": {
+    "source": "https://example.com",
+    "category": "docs"
+  }
 }
 ```
 

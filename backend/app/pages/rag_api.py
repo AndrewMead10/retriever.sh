@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 import secrets
-from typing import Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 import anyio
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
@@ -59,10 +60,23 @@ def _document_to_response(document: ProjectDocument) -> dict:
         "id": document.id,
         "content": document.content,
         "title": document.title,
-        "url": document.url,
-        "published_at": document.published_at,
+        "metadata": document.metadata or {},
         "created_at": document.created_at,
     }
+
+
+def _parse_metadata(value: Any) -> dict:
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
 
 
 def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
@@ -70,8 +84,7 @@ def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
         "id": hit.get("document_id"),
         "content": hit.get("content", ""),
         "title": hit.get("title", ""),
-        "url": hit.get("url", ""),
-        "published_at": hit.get("published_at", ""),
+        "metadata": _parse_metadata(hit.get("metadata")),
         "created_at": hit.get("created_at"),
     }
 
@@ -113,8 +126,7 @@ async def ingest_document(
         project_id=project.id,
         title=payload.title,
         content=payload.text,
-        url=payload.url,
-        published_at=payload.published_at,
+        metadata=payload.metadata or {},
         vespa_document_id=f"pending_{secrets.token_hex(8)}",
     )
     db.add(document)

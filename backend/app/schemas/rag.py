@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -9,16 +9,14 @@ from pydantic import BaseModel, Field
 class DocumentIn(BaseModel):
     text: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1)
-    url: str = Field(..., min_length=1)
-    published_at: str = Field(..., min_length=1, description="ISO 8601 timestamp")
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class DocumentOut(BaseModel):
     id: int
     text: str = Field(..., alias="content")
     title: str
-    url: str
-    published_at: str
+    metadata: Dict[str, Any]
     created_at: datetime
 
     class Config:
@@ -35,8 +33,7 @@ class QueryResult(BaseModel):
     id: int
     text: str = Field(..., alias="content")
     title: str
-    url: str
-    published_at: str
+    metadata: Dict[str, Any]
     created_at: datetime
 
     class Config:

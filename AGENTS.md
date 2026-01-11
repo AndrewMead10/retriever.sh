@@ -28,6 +28,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Container base image (Nov 10, 2025): Dockerfile now uses `python:3.11-slim` for both backend stages; llama.cpp dependencies are installed via UV from backend `pyproject.toml` for both local dev and production parity.
 - Alembic history linearized (Nov 16, 2025): migrations now form a single chain (`0002_account_plan_structures` → `0003_replace_stripe_with_polar` → `0003_postgres_vector_store` → `0004_add_email_verification` → `0004_remove_vector_topups` → `0005_add_active_columns` → `0006_remove_account_tables`) so `alembic upgrade head` no longer errors with "Multiple head revisions."
 - Deployment update (Jan 8, 2026): `npm run build` now outputs directly to `backend/app/static`, and production deploys are expected to run `uv run uvicorn app.main:app --reload` without Docker; update flow is pull code, build frontend, then restart uvicorn.
+- RAG API simplification (Jan 11, 2026): document `url` and `published_at` fields are removed; ingest now accepts optional `metadata` (stored as JSONB and indexed in Vespa), and responses include `metadata` plus `created_at`.
 
 ---
 

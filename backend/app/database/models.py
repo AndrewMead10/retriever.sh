@@ -1,5 +1,6 @@
 from uuid6 import uuid7
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
@@ -173,8 +174,7 @@ class ProjectDocument(Base, AuditMixin):
     vespa_document_id = Column(String, nullable=False, unique=True)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    url = Column(String, nullable=False)
-    published_at = Column(String, nullable=False)
+    metadata = Column(JSONB, nullable=False, default=dict)
     active = Column(Boolean, nullable=False, default=True)
 
     project = relationship("Project", back_populates="documents")

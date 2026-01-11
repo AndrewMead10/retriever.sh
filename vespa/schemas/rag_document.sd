@@ -16,10 +16,7 @@ schema rag_document {
       match: text
       stemming: best
     }
-    field url type string {
-      indexing: attribute | summary
-    }
-    field published_at type string {
+    field metadata type string {
       indexing: attribute | summary
     }
     field created_at type string {

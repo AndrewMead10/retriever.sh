@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -112,8 +113,7 @@ class VespaVectorStore:
             "document_id": document.id,
             "title": document.title,
             "content": document.content,
-            "url": document.url,
-            "published_at": document.published_at,
+            "metadata": json.dumps(document.metadata or {}),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
             "embedding": embedding_vector,
