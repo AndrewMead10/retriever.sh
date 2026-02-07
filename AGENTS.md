@@ -35,6 +35,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Rate-limit bucket self-heal (Feb 7, 2026): some deployment users were missing `rate_limit_buckets` rows and hit `500 Rate limit bucket missing` during ingest/query. `consume_rate_limit` now auto-creates the missing `query`/`ingest` bucket from the current plan limits, and `apply_plan_limits` now guarantees both bucket types exist when plan settings are applied.
 - Vespa project-id type fix (Feb 7, 2026): `projects.id` is UUID (string), so Vespa `rag_document.project_id` was migrated from `int` to `string`; YQL filtering now quotes/escapes project IDs and ingest sends tensor fields as `{"values": [...]}` to avoid Vespa `400` upsert errors on `/api/rag/projects/{project_id}/documents`.
 - Detached ORM fix in vector-store cache (Feb 7, 2026): `VectorStoreRegistry` now initializes `VespaVectorStore` with primitive `project_id` strings instead of cached SQLAlchemy `Project` instances, preventing `DetachedInstanceError` during threaded ingest/query operations.
+- CORS origin normalization (Feb 7, 2026): preflight `OPTIONS` requests to `/api/rag/projects/{project_id}/query` were returning `400` when deployment origin config drifted (e.g. `www` vs apex). CORS setup now canonicalizes configured origins, adds `FRONTEND_URL`, and auto-expands `www`/apex aliases before initializing `CORSMiddleware`.
 
 ---
 
