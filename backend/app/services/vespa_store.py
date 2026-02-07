@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 import httpx
 
 from ..config import settings
-from ..database.models import Project, ProjectDocument
+from ..database.models import ProjectDocument
 
 logger = logging.getLogger(__name__)
 
@@ -109,15 +109,15 @@ class VespaClient:
 
 
 class VespaVectorStore:
-    def __init__(self, *, project: Project, client: VespaClient) -> None:
-        self._project = project
+    def __init__(self, *, project_id: str, client: VespaClient) -> None:
+        self._project_id = project_id
         self._client = client
         self._vespa_dim = settings.vespa_embedding_dim
 
     def upsert_document(self, *, document: ProjectDocument, embedding: Sequence[float]) -> None:
         embedding_vector = self._normalise_embedding(embedding)
         fields = {
-            "project_id": str(self._project.id),
+            "project_id": self._project_id,
             "document_id": document.id,
             "title": document.title,
             "content": document.content,
@@ -143,7 +143,7 @@ class VespaVectorStore:
     ) -> List[Dict[str, Any]]:
         embedding_vector = self._normalise_embedding(embedding)
         return self._client.search(
-            project_id=self._project.id,
+            project_id=self._project_id,
             embedding=embedding_vector,
             vector_k=vector_k,
             top_k=top_k,

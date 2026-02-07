@@ -35,11 +35,12 @@ class VectorStoreRegistry:
         )
 
     def get_vector_store(self, project: Project) -> VespaVectorStore:
+        project_id = str(project.id)
         with self._lock:
-            store = self._stores.get(project.id)
+            store = self._stores.get(project_id)
             if store is None:
-                store = VespaVectorStore(project=project, client=self._client)
-                self._stores[project.id] = store
+                store = VespaVectorStore(project_id=project_id, client=self._client)
+                self._stores[project_id] = store
             return store
 
     def _embedding_config(self, project: Project) -> EmbeddingConfig:
