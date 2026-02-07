@@ -1,6 +1,6 @@
 schema rag_document {
   document rag_document {
-    field project_id type int {
+    field project_id type string {
       indexing: attribute | summary
     }
     field document_id type int {

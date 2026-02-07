@@ -40,7 +40,7 @@ class VespaClient:
     def search(
         self,
         *,
-        project_id: int,
+        project_id: str,
         embedding: Sequence[float],
         vector_k: int,
         top_k: int,
@@ -82,8 +82,9 @@ class VespaClient:
     def _document_url(self, document_id: str) -> str:
         return f"{self._base_url}/document/v1/{self._namespace}/{self._document_type}/docid/{document_id}"
 
-    def _build_yql(self, *, project_id: int, vector_k: int, include_text: bool) -> str:
-        base_filter = f"project_id = {project_id} AND active = true"
+    def _build_yql(self, *, project_id: str, vector_k: int, include_text: bool) -> str:
+        project_id_literal = self._yql_string_literal(project_id)
+        base_filter = f"project_id = {project_id_literal} AND active = true"
         vector_clause = f"{{'targetHits':{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
         if include_text:
             # Use OR operator for hybrid search: vector OR text
@@ -93,11 +94,18 @@ class VespaClient:
             predicate = vector_clause
         return f"select * from sources * where {base_filter} AND {predicate}"
 
+    def _yql_string_literal(self, value: str) -> str:
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+
     def _raise_for_status(self, response: httpx.Response, context: str) -> None:
         if response.status_code >= 400:
-            detail = response.text
+            detail = (response.text or "").strip()
+            if len(detail) > 300:
+                detail = f"{detail[:300]}..."
             logger.error("Vespa %s failed: %s", context, detail)
-            raise VespaClientError(f"Failed to {context}: {response.status_code}")
+            suffix = f" - {detail}" if detail else ""
+            raise VespaClientError(f"Failed to {context}: {response.status_code}{suffix}")
 
 
 class VespaVectorStore:
@@ -109,14 +117,14 @@ class VespaVectorStore:
     def upsert_document(self, *, document: ProjectDocument, embedding: Sequence[float]) -> None:
         embedding_vector = self._normalise_embedding(embedding)
         fields = {
-            "project_id": self._project.id,
+            "project_id": str(self._project.id),
             "document_id": document.id,
             "title": document.title,
             "content": document.content,
             "metadata": json.dumps(document.metadata_ or {}),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
-            "embedding": embedding_vector,
+            "embedding": {"values": embedding_vector},
         }
         self._client.upsert_document(document_id=document.vespa_document_id, fields=fields)
 

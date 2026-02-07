@@ -33,6 +33,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Migration auto-run (Jan 11, 2026): `retriever.service` now includes `ExecStartPre` to run `alembic upgrade head` on every service start. For code-only changes, `git pull` is enough (uvicorn auto-restarts). For changes with new migrations, run `sudo systemctl restart retriever` to trigger migration execution.
 - Docs download refresh (Feb 7, 2026): `/docs` downloadable `retriever-claude-skill.md` now matches live project-scoped API routes (`/api/rag/projects/{project_id}/...` + `X-Project-Key`) and uses fixed `https://retriever.sh` examples (no base-url env var or deployment section).
 - Rate-limit bucket self-heal (Feb 7, 2026): some deployment users were missing `rate_limit_buckets` rows and hit `500 Rate limit bucket missing` during ingest/query. `consume_rate_limit` now auto-creates the missing `query`/`ingest` bucket from the current plan limits, and `apply_plan_limits` now guarantees both bucket types exist when plan settings are applied.
+- Vespa project-id type fix (Feb 7, 2026): `projects.id` is UUID (string), so Vespa `rag_document.project_id` was migrated from `int` to `string`; YQL filtering now quotes/escapes project IDs and ingest sends tensor fields as `{"values": [...]}` to avoid Vespa `400` upsert errors on `/api/rag/projects/{project_id}/documents`.
 
 ---
 
