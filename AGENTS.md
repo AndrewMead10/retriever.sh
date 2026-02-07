@@ -36,6 +36,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Vespa project-id type fix (Feb 7, 2026): `projects.id` is UUID (string), so Vespa `rag_document.project_id` was migrated from `int` to `string`; YQL filtering now quotes/escapes project IDs and ingest sends tensor fields as `{"values": [...]}` to avoid Vespa `400` upsert errors on `/api/rag/projects/{project_id}/documents`.
 - Detached ORM fix in vector-store cache (Feb 7, 2026): `VectorStoreRegistry` now initializes `VespaVectorStore` with primitive `project_id` strings instead of cached SQLAlchemy `Project` instances, preventing `DetachedInstanceError` during threaded ingest/query operations.
 - CORS origin normalization (Feb 7, 2026): preflight `OPTIONS` requests to `/api/rag/projects/{project_id}/query` were returning `400` when deployment origin config drifted (e.g. `www` vs apex). CORS setup now canonicalizes configured origins, adds `FRONTEND_URL`, and auto-expands `www`/apex aliases before initializing `CORSMiddleware`.
+- CORS preflight fallback (Feb 7, 2026): to support API access from arbitrary origins/endpoints and avoid strict preflight failures in production proxy chains, backend middleware now short-circuits `OPTIONS` with permissive `Access-Control-Allow-*` headers while retaining standard `CORSMiddleware` for normal requests.
 
 ---
 

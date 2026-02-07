@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -31,6 +32,27 @@ def _slugify(value: str) -> str:
     value = re.sub(r"[^a-z0-9]+", "-", value)
     value = re.sub(r"-{2,}", "-", value)
     return value.strip("-") or "project"
+
+
+def _build_unique_slug(db: Session, user_id: int, base_slug: str) -> str:
+    matching_slugs = (
+        db.query(Project.slug)
+        .filter(
+            Project.user_id == user_id,
+            Project.active == True,
+            Project.slug.isnot(None),
+            or_(Project.slug == base_slug, Project.slug.like(f"{base_slug}-%")),
+        )
+        .all()
+    )
+    used = {slug for (slug,) in matching_slugs if slug}
+    if base_slug not in used:
+        return base_slug
+
+    suffix = 2
+    while f"{base_slug}-{suffix}" in used:
+        suffix += 1
+    return f"{base_slug}-{suffix}"
 
 
 class PlanInfo(BaseModel):
@@ -182,15 +204,7 @@ def create_project(
     ensure_project_capacity(db, user=user, plan=plan)
 
     name = payload.name.strip()
-    slug = _slugify(name)
-
-    existing_slug = (
-        db.query(Project)
-        .filter(Project.user_id == user.id, Project.slug == slug, Project.active == True)
-        .first()
-    )
-    if existing_slug:
-        slug = f"{slug}-{existing_slug.id + 1}"
+    slug = _build_unique_slug(db, user.id, _slugify(name))
 
     embedding_provider = payload.embedding_provider or "llama.cpp"
     embedding_model = payload.embedding_model or settings.rag_model_filename

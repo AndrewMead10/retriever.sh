@@ -1,4 +1,5 @@
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request, Response
 from urllib.parse import urlparse
 
 from ..config import settings
@@ -60,9 +61,25 @@ def _expanded_cors_origins() -> list[str]:
 
 def setup_cors(app):
     """Configure CORS middleware"""
+    @app.middleware("http")
+    async def allow_all_preflight(request: Request, call_next):
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin") or "*"
+            requested_headers = request.headers.get("access-control-request-headers") or "*"
+            requested_method = request.headers.get("access-control-request-method") or "*"
+            response = Response(status_code=204)
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = requested_method
+            response.headers["Access-Control-Allow-Headers"] = requested_headers
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Vary"] = "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            return response
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_expanded_cors_origins(),
+        allow_origin_regex=".*",
         allow_credentials=settings.cors_allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
