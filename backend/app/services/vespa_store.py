@@ -84,8 +84,8 @@ class VespaClient:
 
     def _build_yql(self, *, project_id: str, vector_k: int, include_text: bool) -> str:
         project_id_literal = self._yql_string_literal(project_id)
-        base_filter = f"project_id = {project_id_literal} AND active = true"
-        vector_clause = f"{{'targetHits':{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
+        base_filter = f"project_id contains {project_id_literal} AND active = true"
+        vector_clause = f"{{targetHits:{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
         if include_text:
             # Use OR operator for hybrid search: vector OR text
             # userQuery() reads from the 'query' parameter

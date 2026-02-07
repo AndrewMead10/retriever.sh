@@ -39,6 +39,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - CORS preflight fallback (Feb 7, 2026): to support API access from arbitrary origins/endpoints and avoid strict preflight failures in production proxy chains, backend middleware now short-circuits `OPTIONS` with permissive `Access-Control-Allow-*` headers while retaining standard `CORSMiddleware` for normal requests.
 - Logfire query logging fix (Feb 7, 2026): `/api/rag/projects/{project_id}/query` now calls `logfire.info(...)` with keyword fields (`project_id`, `query_length`, etc.) instead of passing a metadata dict as a second positional argument, preventing `TypeError: Logfire.info() takes 2 positional arguments but 3 were given`.
 - Stability/tooling cleanup (Feb 7, 2026): duplicate project-name slugging now appends numeric suffixes without UUID math errors, `/readyz` now uses `text("SELECT 1")` and returns HTTP 503 when the DB is unavailable, frontend now has a real ESLint config plus `npm run typecheck`, and AGENTS auth refresh docs were aligned with the actual `/api/auth/refresh` lock/retry behavior.
+- Vespa YQL UUID filter fix (Feb 7, 2026): query search now filters with `project_id contains "<uuid>"` (not `=`) and uses canonical `{targetHits:N}` syntax for nearest-neighbor clauses, preventing Vespa `400 Invalid query parameter` errors that parsed UUID project IDs as int expressions.
 
 ---
 
