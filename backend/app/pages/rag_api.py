@@ -209,12 +209,13 @@ async def query_project(
 
     # Log query start if LogFire is enabled
     if settings.logfire_enabled:
-        logfire.info("RAG query started", {
-            "project_id": project_id,
-            "query_length": len(payload.query) if payload and payload.query else 0,
-            "top_k": payload.top_k if payload else None,
-            "vector_k": payload.vector_k if payload else None,
-        })
+        logfire.info(
+            "RAG query started",
+            project_id=project_id,
+            query_length=len(payload.query) if payload and payload.query else 0,
+            top_k=payload.top_k if payload else None,
+            vector_k=payload.vector_k if payload else None,
+        )
 
     project = _load_project(db, project_id)
     _verify_project_key(project, x_project_key)
@@ -258,10 +259,11 @@ async def query_project(
 
     # Log query success if LogFire is enabled
     if settings.logfire_enabled:
-        logfire.info("RAG query completed successfully", {
-            "project_id": project_id,
-            "result_count": len(results),
-            "user_id": user.id,
-        })
+        logfire.info(
+            "RAG query completed successfully",
+            project_id=project_id,
+            result_count=len(results),
+            user_id=user.id,
+        )
 
     return QueryResponse(results=results)

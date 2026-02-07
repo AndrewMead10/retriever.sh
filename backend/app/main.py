@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pathlib import Path
 import asyncio
@@ -62,10 +63,13 @@ def readyz():
     """Readiness check"""
     try:
         with get_db_session() as db:
-            db.execute("SELECT 1")
+            db.execute(text("SELECT 1"))
         return {"status": "ready"}
-    except Exception as e:
-        return {"status": "not ready", "error": str(e)}
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not ready",
+        )
 
 
 class SPAStaticFiles(StaticFiles):

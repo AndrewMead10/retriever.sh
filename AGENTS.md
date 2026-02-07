@@ -37,6 +37,8 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Detached ORM fix in vector-store cache (Feb 7, 2026): `VectorStoreRegistry` now initializes `VespaVectorStore` with primitive `project_id` strings instead of cached SQLAlchemy `Project` instances, preventing `DetachedInstanceError` during threaded ingest/query operations.
 - CORS origin normalization (Feb 7, 2026): preflight `OPTIONS` requests to `/api/rag/projects/{project_id}/query` were returning `400` when deployment origin config drifted (e.g. `www` vs apex). CORS setup now canonicalizes configured origins, adds `FRONTEND_URL`, and auto-expands `www`/apex aliases before initializing `CORSMiddleware`.
 - CORS preflight fallback (Feb 7, 2026): to support API access from arbitrary origins/endpoints and avoid strict preflight failures in production proxy chains, backend middleware now short-circuits `OPTIONS` with permissive `Access-Control-Allow-*` headers while retaining standard `CORSMiddleware` for normal requests.
+- Logfire query logging fix (Feb 7, 2026): `/api/rag/projects/{project_id}/query` now calls `logfire.info(...)` with keyword fields (`project_id`, `query_length`, etc.) instead of passing a metadata dict as a second positional argument, preventing `TypeError: Logfire.info() takes 2 positional arguments but 3 were given`.
+- Stability/tooling cleanup (Feb 7, 2026): duplicate project-name slugging now appends numeric suffixes without UUID math errors, `/readyz` now uses `text("SELECT 1")` and returns HTTP 503 when the DB is unavailable, frontend now has a real ESLint config plus `npm run typecheck`, and AGENTS auth refresh docs were aligned with the actual `/api/auth/refresh` lock/retry behavior.
 
 ---
 
@@ -169,19 +171,27 @@ Be sure to use shadcn components when possible, and use tailwind for styling.
 The frontend implements automatic token refresh using the `fetchWithAuth` function in `frontend/src/lib/api.ts`:
 
 ```typescript
-// Enhanced fetch with automatic token refresh
+let refreshPromise: Promise<void> | null = null
+
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetch(url, options)
 
-  // If we get a 401, try refreshing the token and retry once
-  if (response.status === 401 && url !== '/auth/refresh') {
+  if (response.status === 401 && url !== '/api/auth/refresh') {
     try {
-      await fetch('/auth/refresh', { method: 'POST' })
-      // Retry the original request
+      if (refreshPromise) {
+        await refreshPromise
+      } else {
+        refreshPromise = fetch('/api/auth/refresh', { method: 'POST' })
+          .then((refreshResponse) => {
+            if (!refreshResponse.ok) throw new Error('Refresh failed')
+          })
+          .finally(() => {
+            refreshPromise = null
+          })
+        await refreshPromise
+      }
       return await fetch(url, options)
-    } catch (refreshError) {
-      // If refresh fails, redirect to login
-      window.location.href = '/auth/login'
+    } catch {
       throw new Error('Authentication failed')
     }
   }
@@ -192,12 +202,13 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
 
 **How it works:**
 1. Intercepts all API calls that return 401 (Unauthorized)
-2. Automatically calls the `/auth/refresh` endpoint to get a new access token
-3. Retries the original request with the new token
-4. If refresh fails, redirects user to login page
+2. Automatically calls `/api/auth/refresh` to get a new access token
+3. Uses a refresh lock so concurrent 401s wait on one refresh request
+4. Retries the original request once after refresh
+5. If refresh fails, throws an auth error (no automatic redirect)
 
 **Usage guidelines:**
-- Use `fetchWithAuth()` for authenticated API calls. It surfaces 401 errors without automatic refresh.
+- Use `fetchWithAuth()` for authenticated API calls. It attempts one automatic refresh + retry on 401 responses.
 - Use regular `fetch()` for public endpoints (login, register, reset request/confirm).
 - Protect routes individually by adding a `beforeLoad` that ensures the user is present; public routes omit it.
 - Example (protected route):
@@ -227,7 +238,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
 
 ### Auth Refresh Strategy
 
-- Frontend `fetchWithAuth` implements a refresh lock so only one `/auth/refresh` runs at a time and other 401s wait, then retry once.
+- Frontend `fetchWithAuth` implements a refresh lock so only one `/api/auth/refresh` runs at a time and other 401s wait, then retry once.
 - Tradeoffs:
   - Pros: avoids duplicate refresh calls and race conditions.
   - Cons: if refresh is slow, concurrent 401s wait behind a single promise, adding slight latency spikes under token expiry.

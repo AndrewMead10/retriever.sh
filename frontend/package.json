@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
     "gen:types": "openapi-typescript ./openapi.json -o src/lib/openapi-types.ts",
     "gen:types:dev": "openapi-typescript http://localhost:5656/openapi.json -o src/lib/openapi-types.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
