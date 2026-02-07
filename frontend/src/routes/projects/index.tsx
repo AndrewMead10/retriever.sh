@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Copy, Check } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -135,8 +136,12 @@ function ProjectsPage() {
     void copyToClipboard(apiKey, { success: 'API key copied to clipboard.', label: 'API Key' })
   }
 
+  const [copiedProjectId, setCopiedProjectId] = useState<string | null>(null)
+
   const handleCopyProjectId = (projectId: string) => {
     void copyToClipboard(projectId, { success: 'Project ID copied to clipboard.', label: 'Project ID' })
+    setCopiedProjectId(projectId)
+    setTimeout(() => setCopiedProjectId(null), 2000)
   }
 
   const handleCreateProject = async () => {
@@ -387,14 +392,17 @@ function ProjectsPage() {
                     <TableCell className="font-mono-jetbrains">
                       <div className="flex items-center gap-2">
                         <span>{project.id}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
+                        <button
                           onClick={() => handleCopyProjectId(project.id)}
-                          className="bg-background border-2 border-foreground sharp-corners font-bold text-[10px] leading-none hover:bg-foreground hover:text-background transition-all duration-200"
+                          className="p-1 text-muted-foreground hover:text-foreground transition-colors duration-200"
+                          title="Copy project ID"
                         >
-                          [ COPY ]
-                        </Button>
+                          {copiedProjectId === project.id ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </button>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono-jetbrains">{formatNumber(project.vector_count)}</TableCell>
@@ -589,7 +597,7 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
               <>
                 <DialogHeader>
                   <DialogTitle className="font-bold dither-text">
-                    {revealState.reason === 'create' ? 'PROJECT API KEY' : 'NEW API KEY ACTIVE'}
+                    {revealState.reason === 'create' ? 'PROJECT CREATED' : 'NEW API KEY ACTIVE'}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
@@ -598,33 +606,31 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
                       ? `This is the only time we will display the ingest API key for ${revealState.projectName}. Copy it and store it securely.`
                       : `The previous API key for ${revealState.projectName} has been revoked. Update your ingest clients with the key below immediately.`}
                   </p>
-                  <div className="bg-background border-2 border-foreground dither-border sharp-corners flex items-center justify-between gap-3 px-4 py-3 font-mono-jetbrains text-sm break-all">
-                    <span className="truncate">{revealState.apiKey}</span>
-                    <Button
-                      size="sm"
-                      onClick={() => handleCopy(revealState.apiKey)}
-                      className={`sharp-corners font-bold transition-all duration-200 ${
-                        copied
-                          ? 'bg-green-600 text-white border-green-600 hover:bg-green-600'
-                          : 'bg-foreground text-background hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      {copied ? '[ COPIED! ]' : '[ COPY ]'}
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-muted-foreground">// PROJECT ID</div>
+                    <div className="bg-background border-2 border-foreground dither-border sharp-corners flex items-center justify-between gap-3 px-4 py-3 font-mono-jetbrains text-sm">
+                      <span className="truncate">{revealState.projectId}</span>
+                      <button
+                        onClick={() => handleCopyProjectId(revealState.projectId)}
+                        className="p-1 text-muted-foreground hover:text-foreground transition-colors duration-200 flex-shrink-0"
+                        title="Copy project ID"
+                      >
+                        {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <div className="bg-background border-2 border-foreground dither-border sharp-corners flex items-center justify-between gap-3 px-4 py-3 font-mono-jetbrains text-sm">
-                    <span>Project ID: {revealState.projectId}</span>
-                    <Button
-                      size="sm"
-                      onClick={() => handleCopyProjectId(revealState.projectId)}
-                      className={`sharp-corners font-bold transition-all duration-200 ${
-                        idCopied
-                          ? 'bg-green-600 text-white border-green-600 hover:bg-green-600'
-                          : 'bg-foreground text-background hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      {idCopied ? '[ COPIED! ]' : '[ COPY ]'}
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-muted-foreground">// API KEY</div>
+                    <div className="bg-background border-2 border-foreground dither-border sharp-corners flex items-center justify-between gap-3 px-4 py-3 font-mono-jetbrains text-sm break-all">
+                      <span className="truncate">{revealState.apiKey}</span>
+                      <button
+                        onClick={() => handleCopy(revealState.apiKey)}
+                        className="p-1 text-muted-foreground hover:text-foreground transition-colors duration-200 flex-shrink-0"
+                        title="Copy API key"
+                      >
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono-jetbrains">
                     Safeguard this key. You can rotate it anytime from the Projects table if it is ever exposed.

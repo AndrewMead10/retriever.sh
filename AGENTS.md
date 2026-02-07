@@ -31,6 +31,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - RAG API simplification (Jan 11, 2026): document `url` and `published_at` fields are removed; ingest now accepts optional `metadata` (stored as JSONB and indexed in Vespa), and responses include `metadata` plus `created_at`.
 - Deployment update (Jan 11, 2026): Production uses native uvicorn with `--reload` (managed by systemd `retriever.service`). PostgreSQL and Vespa run in Docker via `docker-compose.yml`. Uvicorn watches for file changes, so `git pull` automatically triggers backend restart. Frontend changes require `npm run build`. No update-deployment.sh script needed.
 - Migration auto-run (Jan 11, 2026): `retriever.service` now includes `ExecStartPre` to run `alembic upgrade head` on every service start. For code-only changes, `git pull` is enough (uvicorn auto-restarts). For changes with new migrations, run `sudo systemctl restart retriever` to trigger migration execution.
+- Docs download refresh (Feb 7, 2026): `/docs` downloadable `retriever-claude-skill.md` now matches live project-scoped API routes (`/api/rag/projects/{project_id}/...` + `X-Project-Key`) and uses fixed `https://retriever.sh` examples (no base-url env var or deployment section).
 
 ---
 
