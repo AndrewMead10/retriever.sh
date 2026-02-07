@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..database.models import User, UserSubscription, UserUsage, Plan, Project
+from ..database.models import RateLimitBucket, User, UserSubscription, UserUsage, Plan, Project
 
 
 def get_per_project_vector_limit(plan: Plan) -> int | None:
@@ -120,17 +120,24 @@ def get_user_by_id(session: Session, user_id: int) -> User | None:
 
 def apply_plan_limits(session: Session, *, user: User, plan: Plan) -> None:
     now = datetime.utcnow()
-    for bucket in user.rate_limit_buckets:
-        if bucket.limit_type == "query":
-            bucket.max_tokens = plan.query_qps_limit
-        elif bucket.limit_type == "ingest":
-            bucket.max_tokens = plan.ingest_qps_limit
-        else:
-            continue
+    limits = {
+        "query": plan.query_qps_limit,
+        "ingest": plan.ingest_qps_limit,
+    }
+    existing = {bucket.limit_type: bucket for bucket in user.rate_limit_buckets}
 
-        if bucket.max_tokens <= 0:
-            bucket.tokens = float(bucket.max_tokens)
+    for limit_type, max_tokens in limits.items():
+        bucket = existing.get(limit_type)
+        if bucket is None:
+            bucket = RateLimitBucket(
+                user_id=user.id,
+                limit_type=limit_type,
+                tokens=float(max_tokens),
+                max_tokens=max_tokens,
+                last_refill=now,
+            )
         else:
-            bucket.tokens = float(bucket.max_tokens)
-        bucket.last_refill = now
+            bucket.max_tokens = max_tokens
+            bucket.tokens = float(max_tokens)
+            bucket.last_refill = now
         session.add(bucket)

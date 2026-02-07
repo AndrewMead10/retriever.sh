@@ -32,6 +32,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Deployment update (Jan 11, 2026): Production uses native uvicorn with `--reload` (managed by systemd `retriever.service`). PostgreSQL and Vespa run in Docker via `docker-compose.yml`. Uvicorn watches for file changes, so `git pull` automatically triggers backend restart. Frontend changes require `npm run build`. No update-deployment.sh script needed.
 - Migration auto-run (Jan 11, 2026): `retriever.service` now includes `ExecStartPre` to run `alembic upgrade head` on every service start. For code-only changes, `git pull` is enough (uvicorn auto-restarts). For changes with new migrations, run `sudo systemctl restart retriever` to trigger migration execution.
 - Docs download refresh (Feb 7, 2026): `/docs` downloadable `retriever-claude-skill.md` now matches live project-scoped API routes (`/api/rag/projects/{project_id}/...` + `X-Project-Key`) and uses fixed `https://retriever.sh` examples (no base-url env var or deployment section).
+- Rate-limit bucket self-heal (Feb 7, 2026): some deployment users were missing `rate_limit_buckets` rows and hit `500 Rate limit bucket missing` during ingest/query. `consume_rate_limit` now auto-creates the missing `query`/`ingest` bucket from the current plan limits, and `apply_plan_limits` now guarantees both bucket types exist when plan settings are applied.
 
 ---
 

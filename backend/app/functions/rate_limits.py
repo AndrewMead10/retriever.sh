@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..database.models import RateLimitBucket
+from ..database.models import Plan, RateLimitBucket, UserSubscription
 
 
 @dataclass
@@ -48,6 +48,7 @@ def consume_rate_limit(
     cost: float = 1.0,
     error_detail: str | None = None,
 ) -> RateLimitResult:
+    now = datetime.utcnow()
     bucket = (
         session.query(RateLimitBucket)
         .filter(
@@ -58,9 +59,30 @@ def consume_rate_limit(
         .one_or_none()
     )
     if bucket is None:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Rate limit bucket missing")
+        plan_limits = (
+            session.query(Plan.query_qps_limit, Plan.ingest_qps_limit)
+            .join(UserSubscription, UserSubscription.plan_id == Plan.id)
+            .filter(UserSubscription.user_id == user_id)
+            .one_or_none()
+        )
+        if plan_limits is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User subscription missing")
 
-    now = datetime.utcnow()
+        if limit_type == "query":
+            max_tokens = plan_limits.query_qps_limit
+        elif limit_type == "ingest":
+            max_tokens = plan_limits.ingest_qps_limit
+        else:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unsupported rate limit type")
+
+        bucket = RateLimitBucket(
+            user_id=user_id,
+            limit_type=limit_type,
+            tokens=float(max_tokens),
+            last_refill=now,
+            max_tokens=max_tokens,
+        )
+        session.add(bucket)
 
     if bucket.max_tokens <= 0:
         # unlimited plan

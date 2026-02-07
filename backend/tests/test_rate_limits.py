@@ -83,6 +83,24 @@ def test_consume_rate_limit_blocks_when_exhausted(session: Session, seeded_user)
         consume_rate_limit(session, user_id=user.id, limit_type="query")
 
 
+def test_consume_rate_limit_creates_missing_bucket(session: Session, seeded_user):
+    user, plan = seeded_user
+
+    # Seed fixture only creates query bucket; ingest should self-heal.
+    result = consume_rate_limit(session, user_id=user.id, limit_type="ingest")
+    session.commit()
+
+    ingest_bucket = (
+        session.query(RateLimitBucket)
+        .filter(RateLimitBucket.user_id == user.id, RateLimitBucket.limit_type == "ingest")
+        .one_or_none()
+    )
+
+    assert ingest_bucket is not None
+    assert ingest_bucket.max_tokens == plan.ingest_qps_limit
+    assert result.remaining == float(plan.ingest_qps_limit - 1)
+
+
 def test_usage_counters_increment_and_vector_capacity(session: Session, seeded_user):
     user, plan = seeded_user
 
