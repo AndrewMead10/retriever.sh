@@ -25,7 +25,7 @@ Key additions beyond the base template:
 | Variable | Purpose |
 | --- | --- |
 | `RAG_MODEL_REPO` / `RAG_MODEL_FILENAME` | Hugging Face repo + GGUF file for embeddings (defaults to the nomic model from `vector-lab-rag`). |
-| `RAG_EMBED_DIM` | Embedding dimension expected by the model (default `768`). |
+| `RAG_EMBED_DIM` | Embedding dimension used after Matryoshka truncation (default `256`). |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |
 | `POLAR_PRODUCT_TINKERING_ID` | Polar product ID for the Tinkering plan subscription. |
 | `POLAR_PRODUCT_BUILDING_ID` | Polar product ID for the Building plan subscription. |

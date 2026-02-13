@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     rag_model_repo: str = Field("nomic-ai/nomic-embed-text-v1.5-GGUF", env="RAG_MODEL_REPO")
     rag_model_filename: str = Field("nomic-embed-text-v1.5.Q8_0.gguf", env="RAG_MODEL_FILENAME")
     rag_model_dir: str = Field("models", env="RAG_MODEL_DIR")
-    rag_embed_dim: int = Field(768, env="RAG_EMBED_DIM")
+    rag_embed_dim: int = Field(256, env="RAG_EMBED_DIM")
     rag_hf_token: str = Field("", env="RAG_HF_TOKEN")
     rag_llama_threads: int = Field(4, env="RAG_LLAMA_THREADS")
     rag_llama_batch_size: int = Field(8, env="RAG_LLAMA_BATCH_SIZE")
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     vespa_document_type: str = Field("rag_document", env="VESPA_DOCUMENT_TYPE")
     vespa_rank_profile: str = Field("rag-hybrid", env="VESPA_RANK_PROFILE")
     vespa_timeout_seconds: float = Field(10.0, env="VESPA_TIMEOUT_SECONDS")
-    vespa_embedding_dim: int = Field(768, env="VESPA_EMBED_DIM")
+    vespa_embedding_dim: int = Field(256, env="VESPA_EMBED_DIM")
 
     # Polar
     polar_access_token: str = Field("", env="POLAR_ACCESS_TOKEN")

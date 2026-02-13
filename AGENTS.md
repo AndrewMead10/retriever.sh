@@ -40,6 +40,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Logfire query logging fix (Feb 7, 2026): `/api/rag/projects/{project_id}/query` now calls `logfire.info(...)` with keyword fields (`project_id`, `query_length`, etc.) instead of passing a metadata dict as a second positional argument, preventing `TypeError: Logfire.info() takes 2 positional arguments but 3 were given`.
 - Stability/tooling cleanup (Feb 7, 2026): duplicate project-name slugging now appends numeric suffixes without UUID math errors, `/readyz` now uses `text("SELECT 1")` and returns HTTP 503 when the DB is unavailable, frontend now has a real ESLint config plus `npm run typecheck`, and AGENTS auth refresh docs were aligned with the actual `/api/auth/refresh` lock/retry behavior.
 - Vespa YQL UUID filter fix (Feb 7, 2026): query search now filters with `project_id contains "<uuid>"` (not `=`) and uses canonical `{targetHits:N}` syntax for nearest-neighbor clauses, preventing Vespa `400 Invalid query parameter` errors that parsed UUID project IDs as int expressions.
+- Matryoshka embedding downsize (Feb 13, 2026): defaults now target 256-d vectors (`RAG_EMBED_DIM` + `VESPA_EMBED_DIM`), embedding generation truncates larger model outputs (e.g. 768-d nomic vectors) to the configured leading dimensions, and the Vespa `rag_document` schema/query tensor types were updated to `tensor<float>(x[256])`.
 
 ---
 

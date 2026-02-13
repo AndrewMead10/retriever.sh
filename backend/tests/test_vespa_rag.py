@@ -183,7 +183,7 @@ def seeded_project(session: Session):
         embedding_model="nomic-embed-text-v1.5.Q8_0.gguf",
         embedding_model_repo="nomic-ai/nomic-embed-text-v1.5-GGUF",
         embedding_model_file="nomic-embed-text-v1.5.Q8_0.gguf",
-        embedding_dim=768,
+        embedding_dim=256,
         hybrid_weight_vector=0.7,
         hybrid_weight_text=0.3,
         top_k_default=5,

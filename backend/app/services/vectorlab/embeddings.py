@@ -60,10 +60,13 @@ class EmbeddingService:
         with self._lock:
             vector = self._llama.embed(prompt)
         array = np.asarray(vector, dtype=np.float32)
-        if array.shape[0] != self._config.embed_dim:
+        if array.shape[0] < self._config.embed_dim:
             raise ValueError(
-                f"Unexpected embedding dimension: expected {self._config.embed_dim}, got {array.shape[0]}"
+                f"Unexpected embedding dimension: expected at least {self._config.embed_dim}, got {array.shape[0]}"
             )
+        if array.shape[0] > self._config.embed_dim:
+            # Nomic embeddings are Matryoshka-capable: keep the leading dimensions.
+            return array[: self._config.embed_dim]
         return array
 
     def _load_model(self, model_path: Path, config: EmbeddingConfig) -> Llama:
