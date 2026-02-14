@@ -41,7 +41,7 @@ class VespaClient:
         self,
         *,
         project_id: str,
-        embedding: Sequence[float],
+        embedding: Sequence[int],
         vector_k: int,
         top_k: int,
         weight_vector: float,
@@ -58,7 +58,7 @@ class VespaClient:
                 "profile": self._rank_profile,
             },
             "presentation": {"summary": "default"},
-            "input.query(query_embedding)": list(float(v) for v in embedding),
+            "input.query(query_embedding)": list(int(v) for v in embedding),
             "input.query(weight_vector)": weight_vector,
             "input.query(weight_text)": weight_text,
         }
@@ -112,10 +112,14 @@ class VespaVectorStore:
     def __init__(self, *, project_id: str, client: VespaClient) -> None:
         self._project_id = project_id
         self._client = client
-        self._vespa_dim = settings.vespa_embedding_dim
+        self._source_dim = settings.vespa_embedding_dim
+        if self._source_dim <= 0:
+            raise ValueError("VESPA_EMBED_DIM must be greater than zero")
+        if self._source_dim % 8 != 0:
+            raise ValueError("VESPA_EMBED_DIM must be divisible by 8 for Vespa pack_bits int8 embeddings")
 
     def upsert_document(self, *, document: ProjectDocument, embedding: Sequence[float]) -> None:
-        embedding_vector = self._normalise_embedding(embedding)
+        embedding_vector = self._normalise_source_embedding(embedding)
         fields = {
             "project_id": self._project_id,
             "document_id": document.id,
@@ -141,7 +145,7 @@ class VespaVectorStore:
         weight_text: float,
         fts_query: Optional[str],
     ) -> List[Dict[str, Any]]:
-        embedding_vector = self._normalise_embedding(embedding)
+        embedding_vector = self._pack_embedding_bits(embedding)
         return self._client.search(
             project_id=self._project_id,
             embedding=embedding_vector,
@@ -152,11 +156,27 @@ class VespaVectorStore:
             fts_query=fts_query,
         )
 
-    def _normalise_embedding(self, embedding: Sequence[float]) -> List[float]:
+    def _normalise_source_embedding(self, embedding: Sequence[float]) -> List[float]:
         values = [float(v) for v in embedding]
-        if len(values) > self._vespa_dim:
-            return values[: self._vespa_dim]
-        if len(values) < self._vespa_dim:
-            padding = [0.0] * (self._vespa_dim - len(values))
+        if len(values) > self._source_dim:
+            return values[: self._source_dim]
+        if len(values) < self._source_dim:
+            padding = [0.0] * (self._source_dim - len(values))
             return values + padding
         return values
+
+    def _pack_embedding_bits(self, embedding: Sequence[float]) -> List[int]:
+        values = self._normalise_source_embedding(embedding)
+        packed_values: List[int] = []
+
+        for offset in range(0, len(values), 8):
+            chunk = values[offset : offset + 8]
+            byte_value = 0
+            for bit_offset, value in enumerate(chunk):
+                if value > 0:
+                    byte_value |= 1 << (7 - bit_offset)
+            if byte_value > 127:
+                byte_value -= 256
+            packed_values.append(byte_value)
+
+        return packed_values

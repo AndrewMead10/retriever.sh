@@ -25,10 +25,10 @@ schema rag_document {
     field active type bool {
       indexing: attribute | summary
     }
-    field embedding type tensor<float>(x[256]) {
-      indexing: attribute | index | summary
+    field embedding type tensor<int8>(x[32]) {
+      indexing: input embedding | binarize | pack_bits | attribute | index | summary
       attribute {
-        distance-metric: angular
+        distance-metric: hamming
       }
       index {
         hnsw {
@@ -45,7 +45,7 @@ schema rag_document {
 
   rank-profile rag-hybrid inherits default {
     inputs {
-      query(query_embedding) tensor<float>(x[256])
+      query(query_embedding) tensor<int8>(x[32])
       query(weight_vector) double
       query(weight_text) double
       query(fts) string
