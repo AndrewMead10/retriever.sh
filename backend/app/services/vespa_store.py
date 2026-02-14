@@ -128,7 +128,7 @@ class VespaVectorStore:
             "metadata": json.dumps(document.metadata_ or {}),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
-            "embedding": {"values": embedding_vector},
+            "embedding_float": {"values": embedding_vector},
         }
         self._client.upsert_document(document_id=document.vespa_document_id, fields=fields)
 

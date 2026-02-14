@@ -25,16 +25,20 @@ schema rag_document {
     field active type bool {
       indexing: attribute | summary
     }
-    field embedding type tensor<int8>(x[32]) {
-      indexing: input embedding | binarize | pack_bits | attribute | index | summary
-      attribute {
-        distance-metric: hamming
-      }
-      index {
-        hnsw {
-          max-links-per-node: 16
-          neighbors-to-explore-at-insert: 200
-        }
+    field embedding_float type tensor<float>(x[256]) {
+      indexing: summary
+    }
+  }
+
+  field embedding type tensor<int8>(x[32]) {
+    indexing: input embedding_float | binarize | pack_bits | attribute | index
+    attribute {
+      distance-metric: hamming
+    }
+    index {
+      hnsw {
+        max-links-per-node: 16
+        neighbors-to-explore-at-insert: 200
       }
     }
   }

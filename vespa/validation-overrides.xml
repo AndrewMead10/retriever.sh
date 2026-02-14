@@ -1,0 +1,5 @@
+<validation-overrides>
+  <allow until="2026-03-10">hnsw-settings-change</allow>
+  <allow until="2026-03-10">indexing-change</allow>
+  <allow until="2026-03-10">field-type-change</allow>
+</validation-overrides>
