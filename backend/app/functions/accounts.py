@@ -50,7 +50,10 @@ def ensure_project_capacity(session: Session, *, user: User, plan: Plan) -> None
     if max_projects is None:
         return
     current_projects = session.execute(
-        select(func.count(Project.id)).where(Project.user_id == user.id)
+        select(func.count(Project.id)).where(
+            Project.user_id == user.id,
+            Project.active == True,
+        )
     ).scalar_one()
     if current_projects >= max_projects:
         raise HTTPException(

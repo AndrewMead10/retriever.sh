@@ -42,6 +42,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Vespa YQL UUID filter fix (Feb 7, 2026): query search now filters with `project_id contains "<uuid>"` (not `=`) and uses canonical `{targetHits:N}` syntax for nearest-neighbor clauses, preventing Vespa `400 Invalid query parameter` errors that parsed UUID project IDs as int expressions.
 - Matryoshka embedding downsize (Feb 13, 2026): defaults now target 256-d vectors (`RAG_EMBED_DIM` + `VESPA_EMBED_DIM`), embedding generation truncates larger model outputs (e.g. 768-d nomic vectors) to the configured leading dimensions, and the Vespa `rag_document` schema/query tensor types were updated to `tensor<float>(x[256])`.
 - Vespa int8 binary embeddings (Feb 13, 2026): `rag_document.embedding` now stores packed binary vectors as `tensor<int8>(x[32])` via `input embedding_float | binarize | pack_bits`, nearest-neighbor distance switched to `hamming`, backend query vectors pack 256 float dims into signed int8 bytes before `/search`, and the source `embedding_float` field is declared for Vespa indexing-script validation.
+- Active-project plan limit fix (Feb 19, 2026): `ensure_project_capacity` now counts only `projects.active = true`, so soft-deleted projects no longer consume project slots when creating new projects.
 
 ---
 
