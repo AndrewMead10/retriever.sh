@@ -264,6 +264,148 @@ await deleteVector('your-project-uuid', 456, 'proj_...your_key...');`,
 curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/456 \\
   -H "X-Project-Key: proj_...your_key..."`,
     },
+    imageIngest: {
+      python: `import json
+import requests
+
+def ingest_image(project_id: str, api_key: str, image_path: str):
+    with open(image_path, "rb") as image_file:
+        response = requests.post(
+            f"https://retriever.sh/api/rag/projects/{project_id}/images",
+            headers={"X-Project-Key": api_key},
+            data={"metadata": json.dumps({"category": "product", "source": "catalog"})},
+            files={"image": ("photo.jpg", image_file, "image/jpeg")},
+        )
+    response.raise_for_status()
+    return response.json()
+
+result = ingest_image("your-project-uuid", "proj_...your_key...", "./photo.jpg")
+print(result["id"], result["image_url"])`,
+      javascript: `async function ingestImage(projectId, apiKey, file) {
+  const form = new FormData();
+  form.append('image', file);
+  form.append('metadata', JSON.stringify({ category: 'product', source: 'catalog' }));
+
+  const response = await fetch(
+    \`/api/rag/projects/\${projectId}/images\`,
+    {
+      method: 'POST',
+      headers: { 'X-Project-Key': apiKey },
+      body: form
+    }
+  );
+  if (!response.ok) throw new Error('Failed to ingest image');
+  return await response.json();
+}`,
+      curl: `# Ingest an image into a project
+curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/images \\
+  -H "X-Project-Key: proj_...your_key..." \\
+  -F 'metadata={"category":"product","source":"catalog"}' \\
+  -F 'image=@./photo.jpg;type=image/jpeg'`,
+    },
+    imageQueryText: {
+      python: `import requests
+
+def query_images_by_text(project_id: str, api_key: str, query: str):
+    response = requests.post(
+        f"https://retriever.sh/api/rag/projects/{project_id}/images/query/text",
+        headers={"X-Project-Key": api_key, "Content-Type": "application/json"},
+        json={"query": query, "top_k": 5, "vector_k": 50},
+    )
+    response.raise_for_status()
+    return response.json()["results"]
+
+results = query_images_by_text("your-project-uuid", "proj_...your_key...", "red running shoes on white background")
+print(results[0]["image_url"])`,
+      javascript: `async function queryImagesByText(projectId, apiKey, query) {
+  const response = await fetch(
+    \`/api/rag/projects/\${projectId}/images/query/text\`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Project-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query, top_k: 5, vector_k: 50 })
+    }
+  );
+  if (!response.ok) throw new Error('Failed to query images');
+  return await response.json();
+}`,
+      curl: `# Text-to-image search
+curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/images/query/text \\
+  -H "X-Project-Key: proj_...your_key..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "red running shoes on white background",
+    "top_k": 5,
+    "vector_k": 50
+  }'`,
+    },
+    imageQueryImage: {
+      python: `import requests
+
+def query_images_by_image(project_id: str, api_key: str, image_path: str):
+    with open(image_path, "rb") as image_file:
+        response = requests.post(
+            f"https://retriever.sh/api/rag/projects/{project_id}/images/query/image",
+            headers={"X-Project-Key": api_key},
+            data={"top_k": "5", "vector_k": "50"},
+            files={"image": ("query.jpg", image_file, "image/jpeg")},
+        )
+    response.raise_for_status()
+    return response.json()["results"]
+
+results = query_images_by_image("your-project-uuid", "proj_...your_key...", "./query.jpg")
+print(results[0]["id"])`,
+      javascript: `async function queryImagesByImage(projectId, apiKey, file) {
+  const form = new FormData();
+  form.append('image', file);
+  form.append('top_k', '5');
+  form.append('vector_k', '50');
+
+  const response = await fetch(
+    \`/api/rag/projects/\${projectId}/images/query/image\`,
+    {
+      method: 'POST',
+      headers: { 'X-Project-Key': apiKey },
+      body: form
+    }
+  );
+  if (!response.ok) throw new Error('Failed to run image query');
+  return await response.json();
+}`,
+      curl: `# Image-to-image search
+curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/images/query/image \\
+  -H "X-Project-Key: proj_...your_key..." \\
+  -F "top_k=5" \\
+  -F "vector_k=50" \\
+  -F "image=@./query.jpg;type=image/jpeg"`,
+    },
+    imageDelete: {
+      python: `import requests
+
+def delete_image(project_id: str, image_id: int, api_key: str):
+    response = requests.delete(
+        f"https://retriever.sh/api/rag/projects/{project_id}/images/{image_id}",
+        headers={"X-Project-Key": api_key},
+    )
+    if response.status_code != 204:
+        raise RuntimeError(response.text)`,
+      javascript: `async function deleteImage(projectId, imageId, apiKey) {
+  const response = await fetch(
+    \`/api/rag/projects/\${projectId}/images/\${imageId}\`,
+    {
+      method: 'DELETE',
+      headers: { 'X-Project-Key': apiKey }
+    }
+  );
+  if (response.status !== 204) throw new Error('Failed to delete image');
+}`,
+      curl: `# Delete an indexed image
+curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/images/123 \\
+  -H "X-Project-Key: proj_...your_key..."`,
+    },
   }
 
   return (
@@ -274,7 +416,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
           <h1 className="text-6xl font-black dither-text mb-4">DOCUMENTATION</h1>
           <div className="h-1 bg-foreground w-32 mx-auto mb-6"></div>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Simple, powerful RAG API. Just three calls: ingest, query, delete.
+            Project-scoped retrieval with separate text and image search spaces.
           </p>
         </div>
 
@@ -367,11 +509,11 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
           </div>
         </div>
 
-        {/* Three Core Functions */}
+        {/* Text Search Space */}
         <div className="mb-16">
-          <h2 className="text-4xl font-black dither-text mb-8 text-center">THREE CORE ENDPOINTS</h2>
+          <h2 className="text-4xl font-black dither-text mb-8 text-center">TEXT SEARCH SPACE</h2>
           <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Everything you need to ingest content, query it, and remove it when needed.
+            Ingest documents, run hybrid retrieval, and remove vectors when needed.
           </p>
 
           <div className="space-y-8">
@@ -422,7 +564,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
               </div>
 
               <div>
-                <h4 className="font-bold mb-3">Response (204 No Content)</h4>
+                <h4 className="font-bold mb-3">Response</h4>
                 <div className="bg-background border border-foreground overflow-hidden sharp-corners">
                   <SyntaxHighlighter
                     language="json"
@@ -598,6 +740,108 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
                   </SyntaxHighlighter>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Image Search Space */}
+        <div className="mb-16">
+          <h2 className="text-4xl font-black dither-text mb-8 text-center">IMAGE SEARCH SPACE</h2>
+          <p className="text-center text-muted-foreground mb-8 max-w-3xl mx-auto">
+            Images are stored in R2 and indexed with SigLIP2 embeddings. Use text-to-image or image-to-image retrieval.
+          </p>
+
+          <div className="space-y-8">
+            <div id="image-ingest" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black mb-2">1. INGEST IMAGE</h3>
+                  <p className="text-muted-foreground">Upload an image to R2 and index it in Vespa</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
+                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/images</span>
+                  </div>
+                  <button
+                    onClick={() => copyLinkToSection('image-ingest')}
+                    className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
+                    aria-label="Copy link to image ingest section"
+                  >
+                    <Link size={16} />
+                  </button>
+                </div>
+              </div>
+              <LanguageSwitcher />
+              <CodeBlock code={codeExamples.imageIngest[selectedLanguage]} language={selectedLanguage} />
+            </div>
+
+            <div id="image-query-text" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black mb-2">2. TEXT TO IMAGE QUERY</h3>
+                  <p className="text-muted-foreground">Find matching images by natural language query</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
+                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/images/query/text</span>
+                  </div>
+                  <button
+                    onClick={() => copyLinkToSection('image-query-text')}
+                    className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
+                    aria-label="Copy link to image text query section"
+                  >
+                    <Link size={16} />
+                  </button>
+                </div>
+              </div>
+              <LanguageSwitcher />
+              <CodeBlock code={codeExamples.imageQueryText[selectedLanguage]} language={selectedLanguage} />
+            </div>
+
+            <div id="image-query-image" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black mb-2">3. IMAGE TO IMAGE QUERY</h3>
+                  <p className="text-muted-foreground">Find nearest neighbors by uploading a reference image</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
+                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/images/query/image</span>
+                  </div>
+                  <button
+                    onClick={() => copyLinkToSection('image-query-image')}
+                    className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
+                    aria-label="Copy link to image query by image section"
+                  >
+                    <Link size={16} />
+                  </button>
+                </div>
+              </div>
+              <LanguageSwitcher />
+              <CodeBlock code={codeExamples.imageQueryImage[selectedLanguage]} language={selectedLanguage} />
+            </div>
+
+            <div id="image-delete" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black mb-2">4. DELETE IMAGE VECTOR</h3>
+                  <p className="text-muted-foreground">Remove an indexed image and delete the R2 object</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
+                    <span className="font-mono text-sm">DELETE /api/rag/projects/:project_id/images/:image_id</span>
+                  </div>
+                  <button
+                    onClick={() => copyLinkToSection('image-delete')}
+                    className="p-2 border-2 border-foreground sharp-corners hover:bg-muted transition-colors"
+                    aria-label="Copy link to image delete section"
+                  >
+                    <Link size={16} />
+                  </button>
+                </div>
+              </div>
+              <LanguageSwitcher />
+              <CodeBlock code={codeExamples.imageDelete[selectedLanguage]} language={selectedLanguage} />
             </div>
           </div>
         </div>

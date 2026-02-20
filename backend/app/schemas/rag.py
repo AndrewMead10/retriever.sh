@@ -42,3 +42,31 @@ class QueryResult(BaseModel):
 
 class QueryResponse(BaseModel):
     results: List[QueryResult]
+
+
+class ImageOut(BaseModel):
+    id: int
+    storage_key: str
+    content_type: str
+    image_url: str
+    metadata: Dict[str, Any]
+    created_at: datetime
+
+
+class ImageQueryTextRequest(BaseModel):
+    query: str = Field(..., min_length=1)
+    top_k: Optional[int] = Field(None, ge=1, le=50)
+    vector_k: Optional[int] = Field(None, ge=1, le=200)
+
+
+class ImageQueryResult(BaseModel):
+    id: int
+    storage_key: str
+    content_type: str
+    image_url: str
+    metadata: Dict[str, Any]
+    created_at: datetime
+
+
+class ImageQueryResponse(BaseModel):
+    results: List[ImageQueryResult]

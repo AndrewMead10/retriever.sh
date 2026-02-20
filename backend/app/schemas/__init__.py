@@ -1,3 +1,11 @@
 """Pydantic schemas used across the service."""
 
-from .rag import DocumentIn, DocumentOut, QueryRequest, QueryResponse  # noqa: F401
+from .rag import (  # noqa: F401
+    DocumentIn,
+    DocumentOut,
+    ImageOut,
+    ImageQueryResponse,
+    ImageQueryTextRequest,
+    QueryRequest,
+    QueryResponse,
+)

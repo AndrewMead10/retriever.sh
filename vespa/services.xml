@@ -17,6 +17,7 @@
     <redundancy>1</redundancy>
     <documents>
       <document type="rag_document" mode="index" />
+      <document type="rag_image" mode="index" />
     </documents>
     <nodes>
       <node hostalias="node1" distribution-key="0" />

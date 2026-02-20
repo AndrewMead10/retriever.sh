@@ -1,0 +1,46 @@
+schema rag_image {
+  document rag_image {
+    field project_id type string {
+      indexing: attribute | summary
+    }
+    field image_id type int {
+      indexing: attribute | summary
+    }
+    field storage_key type string {
+      indexing: attribute | summary
+    }
+    field content_type type string {
+      indexing: summary
+    }
+    field metadata type string {
+      indexing: attribute | summary
+    }
+    field created_at type string {
+      indexing: attribute | summary
+    }
+    field active type bool {
+      indexing: attribute | summary
+    }
+    field embedding type tensor<float>(x[768]) {
+      indexing: attribute | index | summary
+      attribute {
+        distance-metric: angular
+      }
+      index {
+        hnsw {
+          max-links-per-node: 16
+          neighbors-to-explore-at-insert: 200
+        }
+      }
+    }
+  }
+
+  rank-profile rag-image inherits default {
+    inputs {
+      query(query_embedding) tensor<float>(x[768])
+    }
+    first-phase {
+      expression: closeness(embedding)
+    }
+  }
+}

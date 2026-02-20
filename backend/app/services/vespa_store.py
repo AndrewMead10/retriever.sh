@@ -67,17 +67,47 @@ class VespaClient:
         if include_fts:
             payload["query"] = fts_query
 
-        response = self._client.post(f"{self._base_url}/search/", json=payload)
-        self._raise_for_status(response, "search Vespa")
-        data = response.json()
-        hits = data.get("root", {}).get("children", []) or []
-        results: List[Dict[str, Any]] = []
-        for hit in hits:
-            fields = hit.get("fields") or {}
-            if not fields:
-                continue
-            results.append(fields)
-        return results
+        return self._execute_search(payload)
+
+    def search_vector_only(
+        self,
+        *,
+        project_id: str,
+        embedding: Sequence[int],
+        vector_k: int,
+        top_k: int,
+    ) -> List[Dict[str, Any]]:
+        yql = self._build_vector_only_yql(project_id=project_id, vector_k=vector_k)
+        payload: Dict[str, Any] = {
+            "yql": yql,
+            "hits": top_k,
+            "ranking": {
+                "profile": self._rank_profile,
+            },
+            "presentation": {"summary": "default"},
+            "input.query(query_embedding)": list(int(v) for v in embedding),
+        }
+        return self._execute_search(payload)
+
+    def search_vector_only_float(
+        self,
+        *,
+        project_id: str,
+        embedding: Sequence[float],
+        vector_k: int,
+        top_k: int,
+    ) -> List[Dict[str, Any]]:
+        yql = self._build_vector_only_yql(project_id=project_id, vector_k=vector_k)
+        payload: Dict[str, Any] = {
+            "yql": yql,
+            "hits": top_k,
+            "ranking": {
+                "profile": self._rank_profile,
+            },
+            "presentation": {"summary": "default"},
+            "input.query(query_embedding)": list(float(v) for v in embedding),
+        }
+        return self._execute_search(payload)
 
     def _document_url(self, document_id: str) -> str:
         return f"{self._base_url}/document/v1/{self._namespace}/{self._document_type}/docid/{document_id}"
@@ -94,6 +124,12 @@ class VespaClient:
             predicate = vector_clause
         return f"select * from sources * where {base_filter} AND {predicate}"
 
+    def _build_vector_only_yql(self, *, project_id: str, vector_k: int) -> str:
+        project_id_literal = self._yql_string_literal(project_id)
+        base_filter = f"project_id contains {project_id_literal} AND active = true"
+        vector_clause = f"{{targetHits:{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
+        return f"select * from sources * where {base_filter} AND {vector_clause}"
+
     def _yql_string_literal(self, value: str) -> str:
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
@@ -106,6 +142,19 @@ class VespaClient:
             logger.error("Vespa %s failed: %s", context, detail)
             suffix = f" - {detail}" if detail else ""
             raise VespaClientError(f"Failed to {context}: {response.status_code}{suffix}")
+
+    def _execute_search(self, payload: Mapping[str, Any]) -> List[Dict[str, Any]]:
+        response = self._client.post(f"{self._base_url}/search/", json=payload)
+        self._raise_for_status(response, "search Vespa")
+        data = response.json()
+        hits = data.get("root", {}).get("children", []) or []
+        results: List[Dict[str, Any]] = []
+        for hit in hits:
+            fields = hit.get("fields") or {}
+            if not fields:
+                continue
+            results.append(fields)
+        return results
 
 
 class VespaVectorStore:

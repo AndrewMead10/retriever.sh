@@ -310,6 +310,47 @@
         }
       }
     },
+    "/api/projects/rotate-api-key": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Rotate Project Api Key",
+        "operationId": "rotate_project_api_key_api_projects_rotate_api_key_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectRotateKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/delete": {
       "post": {
         "tags": [
@@ -362,8 +403,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
               "title": "Project Id"
             }
           },
@@ -425,6 +465,74 @@
         }
       }
     },
+    "/api/rag/projects/{project_id}/images": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Ingest Image",
+        "operationId": "ingest_image_api_rag_projects__project_id__images_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_ingest_image_api_rag_projects__project_id__images_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/rag/projects/{project_id}/vectors/{document_id}": {
       "delete": {
         "tags": [
@@ -438,8 +546,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
               "title": "Project Id"
             }
           },
@@ -451,6 +558,67 @@
               "type": "integer",
               "minimum": 1,
               "title": "Document Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/images/{image_id}": {
+      "delete": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Delete Image",
+        "operationId": "delete_image_api_rag_projects__project_id__images__image_id__delete",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "image_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Image Id"
             }
           },
           {
@@ -500,8 +668,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
               "title": "Project Id"
             }
           },
@@ -546,6 +713,149 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/images/query/text": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Query Images By Text",
+        "operationId": "query_images_by_text_api_rag_projects__project_id__images_query_text_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ImageQueryTextRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageQueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/images/query/image": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Query Images By Image",
+        "operationId": "query_images_by_image_api_rag_projects__project_id__images_query_image_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_query_images_by_image_api_rag_projects__project_id__images_query_image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageQueryResponse"
                 }
               }
             }
@@ -942,6 +1252,67 @@
   },
   "components": {
     "schemas": {
+      "Body_ingest_image_api_rag_projects__project_id__images_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "format": "binary",
+            "title": "Image"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_ingest_image_api_rag_projects__project_id__images_post"
+      },
+      "Body_query_images_by_image_api_rag_projects__project_id__images_query_image_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "format": "binary",
+            "title": "Image"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "vector_k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector K"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_query_images_by_image_api_rag_projects__project_id__images_query_image_post"
+      },
       "CheckoutResponse": {
         "properties": {
           "url": {
@@ -1014,24 +1385,23 @@
             "minLength": 1,
             "title": "Title"
           },
-          "url": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Url"
-          },
-          "published_at": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Published At",
-            "description": "ISO 8601 timestamp"
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
           }
         },
         "type": "object",
         "required": [
           "text",
-          "title",
-          "url",
-          "published_at"
+          "title"
         ],
         "title": "DocumentIn"
       },
@@ -1049,13 +1419,10 @@
             "type": "string",
             "title": "Title"
           },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "published_at": {
-            "type": "string",
-            "title": "Published At"
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
           },
           "created_at": {
             "type": "string",
@@ -1068,8 +1435,7 @@
           "id",
           "content",
           "title",
-          "url",
-          "published_at",
+          "metadata",
           "created_at"
         ],
         "title": "DocumentOut"
@@ -1086,6 +1452,142 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImageOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "storage_key": {
+            "type": "string",
+            "title": "Storage Key"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "storage_key",
+          "content_type",
+          "image_url",
+          "metadata",
+          "created_at"
+        ],
+        "title": "ImageOut"
+      },
+      "ImageQueryResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ImageQueryResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "title": "ImageQueryResponse"
+      },
+      "ImageQueryResult": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "storage_key": {
+            "type": "string",
+            "title": "Storage Key"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "storage_key",
+          "content_type",
+          "image_url",
+          "metadata",
+          "created_at"
+        ],
+        "title": "ImageQueryResult"
+      },
+      "ImageQueryTextRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Query"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 50.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "vector_k": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 200.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector K"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "ImageQueryTextRequest"
       },
       "LoginRequest": {
         "properties": {
@@ -1176,6 +1678,24 @@
           "ingest_qps_limit"
         ],
         "title": "PlanInfo"
+      },
+      "ProjectApiKeyResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "ingest_api_key": {
+            "type": "string",
+            "title": "Ingest Api Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "ingest_api_key"
+        ],
+        "title": "ProjectApiKeyResponse"
       },
       "ProjectCreateRequest": {
         "properties": {
@@ -1300,7 +1820,7 @@
       "ProjectDeleteRequest": {
         "properties": {
           "project_id": {
-            "type": "integer",
+            "type": "string",
             "title": "Project Id"
           }
         },
@@ -1346,10 +1866,23 @@
         ],
         "title": "ProjectListResponse"
       },
+      "ProjectRotateKeyRequest": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRotateKeyRequest"
+      },
       "ProjectSummary": {
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "title": "Id"
           },
           "name": {
@@ -1527,13 +2060,10 @@
             "type": "string",
             "title": "Title"
           },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "published_at": {
-            "type": "string",
-            "title": "Published At"
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
           },
           "created_at": {
             "type": "string",
@@ -1546,8 +2076,7 @@
           "id",
           "content",
           "title",
-          "url",
-          "published_at",
+          "metadata",
           "created_at"
         ],
         "title": "QueryResult"

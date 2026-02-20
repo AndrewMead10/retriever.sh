@@ -6,6 +6,7 @@ Production-ready FastAPI + React implementation that turns the original `vector-
 
 - 🔐 **Self-service accounts** – email/password auth with JWT refresh, automatic account provisioning, and single-user billing ready for future org support.
 - 🧱 **Project isolation** – each project stores its documents in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
+- 🖼️ **Multimodal retrieval** – text documents and images are indexed in separate Vespa schemas; image objects live in Cloudflare R2 and are embedded with SigLIP2.
 - ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Tinkering, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
 - 💳 **Polar integration** – plan checkout, self-service portal hand-off, and webhook handlers to activate subscriptions and keep limits in sync.
 - 🌗 **Light/Dark UI** – React + TanStack Router frontend with Tailwind v4 theming, project dashboard, and one-click theme toggle.
@@ -26,6 +27,10 @@ Key additions beyond the base template:
 | --- | --- |
 | `RAG_MODEL_REPO` / `RAG_MODEL_FILENAME` | Hugging Face repo + GGUF file for embeddings (defaults to the nomic model from `vector-lab-rag`). |
 | `RAG_EMBED_DIM` | Embedding dimension used after Matryoshka truncation (default `256`). |
+| `RAG_IMAGE_MODEL_ID` | SigLIP2 model ID for image/text multimodal embeddings (default `google/siglip2-base-patch16-224`). |
+| `RAG_IMAGE_EMBED_DIM` | SigLIP2 embedding dimension (default `768`). |
+| `R2_IMAGES_BUCKET` | Cloudflare R2 bucket used to store uploaded image binaries. Falls back to `R2_BUCKET` if unset. |
+| `R2_IMAGES_PUBLIC_BASE_URL` | Optional public base URL for image delivery. If unset, API responses return presigned URLs. |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |
 | `POLAR_PRODUCT_TINKERING_ID` | Polar product ID for the Tinkering plan subscription. |
 | `POLAR_PRODUCT_BUILDING_ID` | Polar product ID for the Building plan subscription. |
@@ -158,6 +163,58 @@ X-Project-Key: proj_...
 
 Removes the document from Vespa (keyword + ANN indexes), soft-deletes it in PostgreSQL, and decrements usage counters so customers can free capacity.
 
+### Image Retrieval API (project key required)
+
+Image APIs use the same `X-Project-Key` and project scoping model as text retrieval.
+
+#### Ingest image
+
+```
+POST /api/rag/projects/{project_id}/images
+X-Project-Key: proj_...
+Content-Type: multipart/form-data
+```
+
+Form fields:
+- `image` (required binary file)
+- `metadata` (optional JSON string)
+
+Uploaded binaries are written to R2, while image metadata + IDs are stored in PostgreSQL (`project_images`) and embeddings are indexed in Vespa (`rag_image`).
+
+#### Query images by text
+
+```
+POST /api/rag/projects/{project_id}/images/query/text
+X-Project-Key: proj_...
+{
+  "query": "red running shoes on white background",
+  "top_k": 5,
+  "vector_k": 50
+}
+```
+
+#### Query images by image
+
+```
+POST /api/rag/projects/{project_id}/images/query/image
+X-Project-Key: proj_...
+Content-Type: multipart/form-data
+```
+
+Form fields:
+- `image` (required binary file)
+- `top_k` (optional)
+- `vector_k` (optional)
+
+#### Delete image
+
+```
+DELETE /api/rag/projects/{project_id}/images/{image_id}
+X-Project-Key: proj_...
+```
+
+Deletes both the Vespa vector entry and the underlying R2 object, then decrements usage counters.
+
 ### Billing Endpoints (auth required)
 
 | Method | Endpoint | Notes |
@@ -179,6 +236,7 @@ Plan seeding defines the default caps:
 
 - QPS is enforced with token buckets stored in PostgreSQL (`rate_limit_buckets`).
 - Every plan enforces its vector cap on a per-project basis using the `plans.vector_limit` value.
+- Document vectors and image vectors both count toward the same per-project vector cap.
 - Vector/storage caps are defined per plan and scale only when you switch tiers.
 - Limit errors return 402/429 with an upsell message so the frontend can surface upgrade prompts.
 
@@ -202,9 +260,10 @@ The suite verifies token-bucket behaviour and vector-cap checks. Additonal integ
 ## Developer Notes
 
 - Plan records are seeded at startup via `seed_plans`; change defaults there for future migrations.
-- Project creation only stores metadata in PostgreSQL; Vespa holds the actual content/embeddings and keys off `project_id` + the numeric document ID.
+- Text documents and image metadata are stored in PostgreSQL; Vespa holds both embedding indexes (`rag_document` and `rag_image`) scoped by `project_id`.
+- Image binaries are stored in Cloudflare R2 and returned as either public URLs or presigned URLs.
 - Polar webhooks rely on Checkout metadata containing `account_id`; ensure the checkout metadata set during session creation matches this expectation.
-- The vector embedding model downloads on-demand using `huggingface_hub` and `llama-cpp-python`. Provide `RAG_HF_TOKEN` if the repo is gated.
+- Text embeddings download on-demand using `huggingface_hub` + `llama-cpp-python`. SigLIP2 image/text embeddings are loaded via `transformers`/`torch`.
 
 ## License
 
