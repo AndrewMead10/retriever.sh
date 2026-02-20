@@ -5,7 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { toast } from 'sonner'
 
-export const Route = createFileRoute('/docs')({
+export const Route = createFileRoute('/documentation')({
   component: DocsPage,
 })
 

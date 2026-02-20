@@ -10,7 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as DocsRouteImport } from './routes/docs'
+import { Route as DocsRouteImport } from './routes/documentation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as ConnectIndexRouteImport } from './routes/connect/index'
@@ -29,8 +29,8 @@ const PricingRoute = PricingRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
+  id: '/documentation',
+  path: '/documentation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -91,7 +91,7 @@ const AuthLoginIndexRoute = AuthLoginIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/documentation': typeof DocsRoute
   '/pricing': typeof PricingRoute
   '/billing/canceled': typeof BillingCanceledRoute
   '/billing/portal': typeof BillingPortalRoute
@@ -106,7 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/documentation': typeof DocsRoute
   '/pricing': typeof PricingRoute
   '/billing/canceled': typeof BillingCanceledRoute
   '/billing/portal': typeof BillingPortalRoute
@@ -122,7 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/documentation': typeof DocsRoute
   '/pricing': typeof PricingRoute
   '/billing/canceled': typeof BillingCanceledRoute
   '/billing/portal': typeof BillingPortalRoute
@@ -139,7 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/docs'
+    | '/documentation'
     | '/pricing'
     | '/billing/canceled'
     | '/billing/portal'
@@ -154,7 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/docs'
+    | '/documentation'
     | '/pricing'
     | '/billing/canceled'
     | '/billing/portal'
@@ -169,7 +169,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/docs'
+    | '/documentation'
     | '/pricing'
     | '/billing/canceled'
     | '/billing/portal'
@@ -208,10 +208,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
+    '/documentation': {
+      id: '/documentation'
+      path: '/documentation'
+      fullPath: '/documentation'
       preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }

@@ -50,9 +50,9 @@ export function Navbar() {
 
           <div className="flex items-center space-x-4">
             <Link
-              to="/docs"
+              to="/documentation"
               className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
-                isActive('/docs')
+                isActive('/documentation')
                   ? 'text-foreground font-black'
                   : 'text-muted-foreground hover:text-foreground'
               }`}

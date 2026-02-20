@@ -276,7 +276,7 @@ function ConnectPage() {
                       asChild
                       className="w-full justify-start font-mono-jetbrains sharp-corners"
                     >
-                      <a href="/docs">DOCUMENTATION</a>
+                      <a href="/documentation">DOCUMENTATION</a>
                     </Button>
                     <Button
                       variant="ghost"
