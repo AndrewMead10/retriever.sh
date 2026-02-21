@@ -110,6 +110,15 @@ class Siglip2EmbeddingService:
                 for key, value in model_inputs.items()
                 if isinstance(value, torch.Tensor)
             }
+            pixel_values = tensors.get("pixel_values")
+            if isinstance(pixel_values, torch.Tensor):
+                if pixel_values.ndim == 3:
+                    tensors["pixel_values"] = pixel_values.unsqueeze(0)
+                elif pixel_values.ndim != 4:
+                    raise ValueError(
+                        "Expected SigLIP2 image tensor pixel_values to be 3D or 4D, "
+                        f"got shape {tuple(pixel_values.shape)}"
+                    )
             raw_features = self._model.get_image_features(**tensors)
             features = self._coerce_feature_tensor(raw_features)
             normalised = torch.nn.functional.normalize(features, p=2, dim=-1)

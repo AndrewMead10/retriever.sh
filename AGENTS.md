@@ -46,6 +46,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Multimodal image retrieval (Feb 20, 2026): added SigLIP2-backed image embeddings (`google/siglip2-base-patch16-224`, 768 dimensions), a dedicated Vespa `rag_image` schema/rank profile, project-scoped image ingest/query/delete routes (`/images`, `/images/query/text`, `/images/query/image`), and `project_images` metadata persistence. Image binaries now store in Cloudflare R2 (`R2_IMAGES_BUCKET` + shared R2 credentials) and query responses return either public URLs or presigned URLs based on configuration.
 - Image vector precision update (Feb 20, 2026): `rag_image` switched from binary `binarize|pack_bits` int8 vectors to full `tensor<float>(x[768])` embeddings with angular distance. SigLIP2 image/text queries now run on non-binarized vectors to reduce retrieval loss.
 - SigLIP2 transformers 5.x compatibility (Feb 21, 2026): `Siglip2Model.get_text_features()`/`get_image_features()` may return `BaseModelOutputWithPooling` (not raw tensors), so embedding extraction now uses `pooler_output` when present and validates a 2D tensor before normalization to avoid init-time `'... has no attribute norm'` failures.
+- SigLIP2 image ingest tensor-shape fix (Feb 21, 2026): some Transformers image processors can emit unbatched `pixel_values` tensors (`C,H,W`) for a single image, which crashed ingest with `ValueError: expected 4, got 3`; the embedding service now coerces 3D image tensors to batched 4D (`1,C,H,W`) and raises a clear error for unexpected ranks.
 
 ---
 
