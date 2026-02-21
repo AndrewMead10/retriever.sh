@@ -103,6 +103,17 @@ def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
     }
 
 
+def _parse_score(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_metadata_payload(payload: str | None) -> dict:
     if payload is None or not payload.strip():
         return {}
@@ -170,6 +181,7 @@ def _vespa_image_hit_to_response(hit: Mapping[str, Any]) -> dict:
         "image_url": storage.resolve_url(storage_key) if storage_key else "",
         "metadata": _parse_metadata(hit.get("metadata")),
         "created_at": hit.get("created_at"),
+        "score": _parse_score(hit.get("_vespa_relevance")),
     }
 
 

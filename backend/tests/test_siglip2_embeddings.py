@@ -18,9 +18,11 @@ _SAMPLE_PNG_BYTES = (
 
 
 class _StubTokenizer:
-    def __call__(self, text, return_tensors="pt", padding=False):
+    def __call__(self, text, return_tensors="pt", padding=False, truncation=False):
         assert return_tensors == "pt"
         assert text is not None
+        assert padding == "max_length"
+        assert truncation is True
         return {"input_ids": torch.tensor([[1, 2, 3]])}
 
 

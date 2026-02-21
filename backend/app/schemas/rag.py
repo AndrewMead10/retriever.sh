@@ -66,6 +66,7 @@ class ImageQueryResult(BaseModel):
     image_url: str
     metadata: Dict[str, Any]
     created_at: datetime
+    score: Optional[float] = None
 
 
 class ImageQueryResponse(BaseModel):

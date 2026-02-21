@@ -79,7 +79,12 @@ class Siglip2EmbeddingService:
         if not query.strip():
             raise ValueError("Text query cannot be empty")
         with self._lock:
-            model_inputs = self._tokenizer([query], return_tensors="pt", padding=True)
+            model_inputs = self._tokenizer(
+                [query],
+                return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+            )
             return self._encode_text_inputs(model_inputs)
 
     def embed_image(self, *, image_bytes: bytes) -> Sequence[float]:
@@ -91,7 +96,12 @@ class Siglip2EmbeddingService:
 
     def _detect_embedding_dim(self) -> int:
         with torch.inference_mode():
-            model_inputs = self._tokenizer(["dimension probe"], return_tensors="pt", padding=True)
+            model_inputs = self._tokenizer(
+                ["dimension probe"],
+                return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+            )
             embedding = self._encode_text_inputs(model_inputs)
             return len(embedding)
 

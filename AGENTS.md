@@ -52,6 +52,8 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Image API resilience/test coverage (Feb 21, 2026): `/api/rag/projects/{project_id}/images` now maps embedding `ValueError`s to HTTP 400 and returns HTTP 503 for upstream embedding/vector persistence failures, image-query-by-image maps embedding failures to 400/503, and image delete now soft-deletes/decrements usage even if R2 object deletion fails. Added backend tests covering image ingest/query/delete flows with mocked embedder/store/storage.
 - Vespa vector-only YQL syntax fix (Feb 21, 2026): nearest-neighbor predicates are now wrapped as `({targetHits:N}nearestNeighbor(...))` for vector-only/image search YQL (`_build_vector_only_yql` and non-text `_build_yql`), preventing Vespa `400 Invalid query parameter ... mismatched input 'nearestNeighbor'` errors on `/api/rag/projects/{project_id}/images/query/text`.
 - Image ranking determinism hardening (Feb 21, 2026): `VespaClient._execute_search` now preserves each hit’s `relevance` and sorts results descending before response mapping, so image/vector query ordering no longer depends on raw `children` ordering returned by Vespa.
+- SigLIP2 text-query padding fix (Feb 21, 2026): image text embeddings now tokenize with `padding="max_length"` + truncation (matching Transformers SigLIP2 guidance) instead of dynamic padding, reducing query embedding drift for short prompts.
+- Image query score visibility (Feb 21, 2026): image query responses now include optional `score` sourced from Vespa relevance (`_vespa_relevance`) to make ranking/debugging observable from `/api/rag/projects/{project_id}/images/query/text|image`.
 
 ---
 

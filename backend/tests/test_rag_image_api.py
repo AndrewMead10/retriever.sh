@@ -320,6 +320,7 @@ def test_query_images_by_text_and_image(test_client: TestClient, seeded_project,
                 "content_type": "image/png",
                 "metadata": json.dumps({"label": "cat"}),
                 "created_at": datetime.utcnow().isoformat(),
+                "_vespa_relevance": 0.42,
             }
         ]
     )
@@ -337,6 +338,7 @@ def test_query_images_by_text_and_image(test_client: TestClient, seeded_project,
     text_results = text_response.json()["results"]
     assert len(text_results) == 1
     assert text_results[0]["metadata"] == {"label": "cat"}
+    assert text_results[0]["score"] == pytest.approx(0.42)
     assert embedder.embed_text_calls == 1
     assert store.last_search == (4, 2)
 
@@ -350,6 +352,7 @@ def test_query_images_by_text_and_image(test_client: TestClient, seeded_project,
     image_results = image_response.json()["results"]
     assert len(image_results) == 1
     assert image_results[0]["image_url"].startswith("https://cdn.example/")
+    assert image_results[0]["score"] == pytest.approx(0.42)
     assert embedder.embed_image_calls == 1
 
 
