@@ -54,6 +54,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Image ranking determinism hardening (Feb 21, 2026): `VespaClient._execute_search` now preserves each hit’s `relevance` and sorts results descending before response mapping, so image/vector query ordering no longer depends on raw `children` ordering returned by Vespa.
 - SigLIP2 text-query padding fix (Feb 21, 2026): image text embeddings now tokenize with `padding="max_length"` + truncation (matching Transformers SigLIP2 guidance) instead of dynamic padding, reducing query embedding drift for short prompts.
 - Image query score visibility (Feb 21, 2026): image query responses now include optional `score` sourced from Vespa relevance (`_vespa_relevance`) to make ranking/debugging observable from `/api/rag/projects/{project_id}/images/query/text|image`.
+- Image model cutover to so400m (Feb 21, 2026): defaults now use `google/siglip2-so400m-patch16-naflex` with `RAG_IMAGE_EMBED_DIM=1152` and `VESPA_IMAGE_EMBED_DIM=1152`; `vespa/schemas/rag_image.sd` tensor dimensions were updated to `x[1152]`. Existing image indexes must be rebuilt (re-embed/re-ingest) after deploying the new Vespa schema.
 
 ---
 

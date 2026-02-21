@@ -27,8 +27,8 @@ Key additions beyond the base template:
 | --- | --- |
 | `RAG_MODEL_REPO` / `RAG_MODEL_FILENAME` | Hugging Face repo + GGUF file for embeddings (defaults to the nomic model from `vector-lab-rag`). |
 | `RAG_EMBED_DIM` | Embedding dimension used after Matryoshka truncation (default `256`). |
-| `RAG_IMAGE_MODEL_ID` | SigLIP2 model ID for image/text multimodal embeddings (default `google/siglip2-base-patch16-224`). |
-| `RAG_IMAGE_EMBED_DIM` | SigLIP2 embedding dimension (default `768`). |
+| `RAG_IMAGE_MODEL_ID` | SigLIP2 model ID for image/text multimodal embeddings (default `google/siglip2-so400m-patch16-naflex`). |
+| `RAG_IMAGE_EMBED_DIM` | SigLIP2 embedding dimension (default `1152`). |
 | `R2_IMAGES_BUCKET` | Cloudflare R2 bucket used to store uploaded image binaries. Falls back to `R2_BUCKET` if unset. |
 | `R2_IMAGES_PUBLIC_BASE_URL` | Optional public base URL for image delivery. If unset, API responses return presigned URLs. |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |

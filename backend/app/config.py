@@ -64,9 +64,9 @@ class Settings(BaseSettings):
     rag_llama_threads: int = Field(4, env="RAG_LLAMA_THREADS")
     rag_llama_batch_size: int = Field(8, env="RAG_LLAMA_BATCH_SIZE")
     rag_llama_context: int = Field(2048, env="RAG_LLAMA_CONTEXT")
-    rag_image_model_id: str = Field("google/siglip2-base-patch16-naflex", env="RAG_IMAGE_MODEL_ID")
+    rag_image_model_id: str = Field("google/siglip2-so400m-patch16-naflex", env="RAG_IMAGE_MODEL_ID")
     rag_image_model_dir: str = Field("models/siglip2", env="RAG_IMAGE_MODEL_DIR")
-    rag_image_embed_dim: int = Field(768, env="RAG_IMAGE_EMBED_DIM")
+    rag_image_embed_dim: int = Field(1152, env="RAG_IMAGE_EMBED_DIM")
     rag_image_device: str = Field("cpu", env="RAG_IMAGE_DEVICE")
     rag_image_dtype: str = Field("float32", env="RAG_IMAGE_DTYPE")
     rag_image_max_bytes: int = Field(10 * 1024 * 1024, env="RAG_IMAGE_MAX_BYTES")
@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     vespa_embedding_dim: int = Field(256, env="VESPA_EMBED_DIM")
     vespa_image_document_type: str = Field("rag_image", env="VESPA_IMAGE_DOCUMENT_TYPE")
     vespa_image_rank_profile: str = Field("rag-image", env="VESPA_IMAGE_RANK_PROFILE")
-    vespa_image_embedding_dim: int = Field(768, env="VESPA_IMAGE_EMBED_DIM")
+    vespa_image_embedding_dim: int = Field(1152, env="VESPA_IMAGE_EMBED_DIM")
 
     # Polar
     polar_access_token: str = Field("", env="POLAR_ACCESS_TOKEN")

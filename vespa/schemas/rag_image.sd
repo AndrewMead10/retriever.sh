@@ -21,7 +21,7 @@ schema rag_image {
     field active type bool {
       indexing: attribute | summary
     }
-    field embedding type tensor<float>(x[768]) {
+    field embedding type tensor<float>(x[1152]) {
       indexing: attribute | index | summary
       attribute {
         distance-metric: angular
@@ -37,7 +37,7 @@ schema rag_image {
 
   rank-profile rag-image inherits default {
     inputs {
-      query(query_embedding) tensor<float>(x[768])
+      query(query_embedding) tensor<float>(x[1152])
     }
     first-phase {
       expression: closeness(embedding)

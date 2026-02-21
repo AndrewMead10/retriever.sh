@@ -48,7 +48,7 @@ class Siglip2EmbeddingService:
             raise ValueError(
                 "RAG_IMAGE_MODEL_ID must resolve to a SigLIP2 model "
                 f"(got model_type='{self._model_type or 'unknown'}' for '{config.model_id}'). "
-                "Use a SigLIP2 checkpoint such as 'google/siglip2-base-patch16-naflex'."
+                "Use a SigLIP2 checkpoint such as 'google/siglip2-so400m-patch16-naflex'."
             )
         self._image_processor = Siglip2ImageProcessor.from_pretrained(
             config.model_id,
