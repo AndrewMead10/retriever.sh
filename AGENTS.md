@@ -45,6 +45,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Active-project plan limit fix (Feb 19, 2026): `ensure_project_capacity` now counts only `projects.active = true`, so soft-deleted projects no longer consume project slots when creating new projects.
 - Multimodal image retrieval (Feb 20, 2026): added SigLIP2-backed image embeddings (`google/siglip2-base-patch16-224`, 768 dimensions), a dedicated Vespa `rag_image` schema/rank profile, project-scoped image ingest/query/delete routes (`/images`, `/images/query/text`, `/images/query/image`), and `project_images` metadata persistence. Image binaries now store in Cloudflare R2 (`R2_IMAGES_BUCKET` + shared R2 credentials) and query responses return either public URLs or presigned URLs based on configuration.
 - Image vector precision update (Feb 20, 2026): `rag_image` switched from binary `binarize|pack_bits` int8 vectors to full `tensor<float>(x[768])` embeddings with angular distance. SigLIP2 image/text queries now run on non-binarized vectors to reduce retrieval loss.
+- SigLIP2 transformers 5.x compatibility (Feb 21, 2026): `Siglip2Model.get_text_features()`/`get_image_features()` may return `BaseModelOutputWithPooling` (not raw tensors), so embedding extraction now uses `pooler_output` when present and validates a 2D tensor before normalization to avoid init-time `'... has no attribute norm'` failures.
 
 ---
 

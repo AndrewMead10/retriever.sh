@@ -4,7 +4,7 @@ import io
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import torch
@@ -97,7 +97,8 @@ class Siglip2EmbeddingService:
                 for key, value in model_inputs.items()
                 if isinstance(value, torch.Tensor)
             }
-            features = self._model.get_text_features(**tensors)
+            raw_features = self._model.get_text_features(**tensors)
+            features = self._coerce_feature_tensor(raw_features)
             normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
             vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
         return self._normalise_vector(vector)
@@ -109,10 +110,32 @@ class Siglip2EmbeddingService:
                 for key, value in model_inputs.items()
                 if isinstance(value, torch.Tensor)
             }
-            features = self._model.get_image_features(**tensors)
+            raw_features = self._model.get_image_features(**tensors)
+            features = self._coerce_feature_tensor(raw_features)
             normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
             vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
         return self._normalise_vector(vector)
+
+    def _coerce_feature_tensor(self, raw_features: Any) -> torch.Tensor:
+        if isinstance(raw_features, torch.Tensor):
+            features = raw_features
+        elif isinstance(raw_features, (tuple, list)) and raw_features and isinstance(raw_features[0], torch.Tensor):
+            features = raw_features[0]
+        else:
+            pooler_output = getattr(raw_features, "pooler_output", None)
+            if isinstance(pooler_output, torch.Tensor):
+                features = pooler_output
+            else:
+                raise TypeError(
+                    "SigLIP2 features must be a torch.Tensor or include pooler_output; "
+                    f"got {type(raw_features).__name__}"
+                )
+
+        if features.ndim == 1:
+            features = features.unsqueeze(0)
+        if features.ndim != 2:
+            raise ValueError(f"Expected 2D SigLIP2 feature tensor, got shape {tuple(features.shape)}")
+        return features
 
     def _normalise_vector(self, vector: np.ndarray) -> Sequence[float]:
         expected_dim = getattr(self, "_actual_dim", vector.shape[0])

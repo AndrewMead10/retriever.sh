@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from transformers.modeling_outputs import BaseModelOutputWithPooling
 
 from app.services.siglip2_embeddings import Siglip2Config, Siglip2EmbeddingService
 
@@ -29,10 +30,22 @@ class _StubModel:
         return self
 
     def get_text_features(self, **kwargs):
-        return torch.tensor([[3.0, 4.0, 0.0, 0.0]], dtype=torch.float32)
+        return BaseModelOutputWithPooling(
+            last_hidden_state=torch.tensor(
+                [[[3.0, 4.0, 0.0, 0.0], [3.0, 4.0, 0.0, 0.0]]],
+                dtype=torch.float32,
+            ),
+            pooler_output=torch.tensor([[3.0, 4.0, 0.0, 0.0]], dtype=torch.float32),
+        )
 
     def get_image_features(self, **kwargs):
-        return torch.tensor([[0.0, 3.0, 4.0, 0.0]], dtype=torch.float32)
+        return BaseModelOutputWithPooling(
+            last_hidden_state=torch.tensor(
+                [[[0.0, 3.0, 4.0, 0.0], [0.0, 3.0, 4.0, 0.0]]],
+                dtype=torch.float32,
+            ),
+            pooler_output=torch.tensor([[0.0, 3.0, 4.0, 0.0]], dtype=torch.float32),
+        )
 
 
 def _build_service(monkeypatch: pytest.MonkeyPatch, *, embed_dim: int) -> Siglip2EmbeddingService:
