@@ -23,7 +23,7 @@ def test_build_vector_only_yql_uses_project_filter():
     )
 
     assert 'project_id contains "019c3671-5951-76ab-87fd-ba0e6045c63c"' in yql
-    assert "{targetHits:10}nearestNeighbor(embedding, query_embedding)" in yql
+    assert "AND ({targetHits:10}nearestNeighbor(embedding, query_embedding))" in yql
 
 
 def test_vespa_image_embedding_dim_only_requires_positive(monkeypatch):

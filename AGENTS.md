@@ -49,6 +49,7 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - SigLIP2 image ingest tensor-shape fix (Feb 21, 2026): SigLIP2 preprocessing now validates patch-tensor `pixel_values` shapes and coerces unbatched 2D tensors to 3D (`1,N,D`), avoiding shape crashes while keeping the SigLIP2 tensor contract explicit.
 - SigLIP2 model-type cutover (Feb 21, 2026): image embeddings now enforce true `siglip2` model configs only and fail fast for non-SigLIP2 checkpoints (for example `google/siglip2-base-patch16-224` currently resolves to `model_type=siglip` in Transformers). Default `RAG_IMAGE_MODEL_ID` is now `google/siglip2-base-patch16-naflex`.
 - Image API resilience/test coverage (Feb 21, 2026): `/api/rag/projects/{project_id}/images` now maps embedding `ValueError`s to HTTP 400 and returns HTTP 503 for upstream embedding/vector persistence failures, image-query-by-image maps embedding failures to 400/503, and image delete now soft-deletes/decrements usage even if R2 object deletion fails. Added backend tests covering image ingest/query/delete flows with mocked embedder/store/storage.
+- Vespa vector-only YQL syntax fix (Feb 21, 2026): nearest-neighbor predicates are now wrapped as `({targetHits:N}nearestNeighbor(...))` for vector-only/image search YQL (`_build_vector_only_yql` and non-text `_build_yql`), preventing Vespa `400 Invalid query parameter ... mismatched input 'nearestNeighbor'` errors on `/api/rag/projects/{project_id}/images/query/text`.
 
 ---
 

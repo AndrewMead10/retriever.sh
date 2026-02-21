@@ -27,6 +27,24 @@ def test_build_yql_uses_string_filter_for_uuid_project_id():
     assert "OR userQuery()" in yql
 
 
+def test_build_yql_without_text_wraps_nearest_neighbor_clause():
+    client = VespaClient(
+        endpoint="http://localhost:8080",
+        namespace="rag",
+        document_type="rag_document",
+        rank_profile="rag-hybrid",
+        timeout=5.0,
+    )
+
+    yql = client._build_yql(
+        project_id="019c3671-5951-76ab-87fd-ba0e6045c63c",
+        vector_k=20,
+        include_text=False,
+    )
+
+    assert "AND ({targetHits:20}nearestNeighbor(embedding, query_embedding))" in yql
+
+
 def test_pack_embedding_bits_uses_signed_big_endian_bit_packing(monkeypatch):
     monkeypatch.setattr(settings, "vespa_embedding_dim", 8)
     client = VespaClient(

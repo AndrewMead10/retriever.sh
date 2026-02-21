@@ -121,14 +121,14 @@ class VespaClient:
             # userQuery() reads from the 'query' parameter
             predicate = f"({vector_clause} OR userQuery())"
         else:
-            predicate = vector_clause
+            predicate = f"({vector_clause})"
         return f"select * from sources * where {base_filter} AND {predicate}"
 
     def _build_vector_only_yql(self, *, project_id: str, vector_k: int) -> str:
         project_id_literal = self._yql_string_literal(project_id)
         base_filter = f"project_id contains {project_id_literal} AND active = true"
         vector_clause = f"{{targetHits:{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
-        return f"select * from sources * where {base_filter} AND {vector_clause}"
+        return f"select * from sources * where {base_filter} AND ({vector_clause})"
 
     def _yql_string_literal(self, value: str) -> str:
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
