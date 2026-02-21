@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 import json
 import secrets
 from typing import Annotated
@@ -35,6 +36,7 @@ from ..services.search import normalise_fts_query
 from ..services.vector_store import vector_store_registry
 
 router = APIRouter(prefix="/rag", tags=["rag"])
+logger = logging.getLogger(__name__)
 
 
 def _load_project(session: Session, project_id: str) -> Project:
@@ -300,14 +302,22 @@ async def ingest_image(
         await anyio.to_thread.run_sync(
             lambda: image_store.upsert_image(image=image_record, embedding=embedding)
         )
-    except Exception:
+    except Exception as exc:
         try:
             await anyio.to_thread.run_sync(
                 lambda: object_storage.delete_image(storage_key=image_record.storage_key)
             )
         except Exception:
             pass
-        raise
+        if isinstance(exc, ValueError):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image payload: {exc}",
+            ) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to process image embedding or persist image vector",
+        ) from exc
 
     project.vector_count += 1
     project.last_ingest_at = datetime.utcnow()
@@ -393,9 +403,12 @@ async def delete_image(
     image_store = vector_store_registry.get_image_vector_store(project)
     object_storage = _resolve_image_storage()
     await anyio.to_thread.run_sync(lambda: image_store.delete_image(image_record))
-    await anyio.to_thread.run_sync(
-        lambda: object_storage.delete_image(storage_key=image_record.storage_key)
-    )
+    try:
+        await anyio.to_thread.run_sync(
+            lambda: object_storage.delete_image(storage_key=image_record.storage_key)
+        )
+    except Exception:
+        logger.exception("Failed to delete image object %s from R2", image_record.storage_key)
 
     image_record.active = False
     db.add(image_record)
@@ -572,16 +585,27 @@ async def query_images_by_image(
     image_embedder = _resolve_image_embedder()
     image_store = vector_store_registry.get_image_vector_store(project)
 
-    embedding = await anyio.to_thread.run_sync(
-        lambda: image_embedder.embed_image(image_bytes=image_bytes)
-    )
-    rows = await anyio.to_thread.run_sync(
-        lambda: image_store.search(
-            embedding=embedding,
-            vector_k=resolved_vector_k,
-            top_k=resolved_top_k,
+    try:
+        embedding = await anyio.to_thread.run_sync(
+            lambda: image_embedder.embed_image(image_bytes=image_bytes)
         )
-    )
+        rows = await anyio.to_thread.run_sync(
+            lambda: image_store.search(
+                embedding=embedding,
+                vector_k=resolved_vector_k,
+                top_k=resolved_top_k,
+            )
+        )
+    except Exception as exc:
+        if isinstance(exc, ValueError):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image payload: {exc}",
+            ) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to process image query",
+        ) from exc
 
     increment_usage(db, user=user, queries=1)
     db.commit()

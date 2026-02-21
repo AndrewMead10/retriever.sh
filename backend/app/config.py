@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     rag_llama_threads: int = Field(4, env="RAG_LLAMA_THREADS")
     rag_llama_batch_size: int = Field(8, env="RAG_LLAMA_BATCH_SIZE")
     rag_llama_context: int = Field(2048, env="RAG_LLAMA_CONTEXT")
-    rag_image_model_id: str = Field("google/siglip2-base-patch16-224", env="RAG_IMAGE_MODEL_ID")
+    rag_image_model_id: str = Field("google/siglip2-base-patch16-naflex", env="RAG_IMAGE_MODEL_ID")
     rag_image_model_dir: str = Field("models/siglip2", env="RAG_IMAGE_MODEL_DIR")
     rag_image_embed_dim: int = Field(768, env="RAG_IMAGE_EMBED_DIM")
     rag_image_device: str = Field("cpu", env="RAG_IMAGE_DEVICE")

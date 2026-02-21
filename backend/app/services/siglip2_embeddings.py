@@ -37,8 +37,19 @@ class Siglip2EmbeddingService:
         if torch_dtype is None:
             raise ValueError(f"Unsupported RAG_IMAGE_DTYPE: {config.dtype}")
 
-        # Load image/text preprocessors explicitly to avoid AutoTokenizer mapping
-        # issues present in some transformers releases.
+        self._model = AutoModel.from_pretrained(
+            config.model_id,
+            token=config.hf_token,
+            cache_dir=str(config.model_dir),
+            torch_dtype=torch_dtype,
+        )
+        self._model_type = str(getattr(self._model.config, "model_type", "")).lower()
+        if self._model_type != "siglip2":
+            raise ValueError(
+                "RAG_IMAGE_MODEL_ID must resolve to a SigLIP2 model "
+                f"(got model_type='{self._model_type or 'unknown'}' for '{config.model_id}'). "
+                "Use a SigLIP2 checkpoint such as 'google/siglip2-base-patch16-naflex'."
+            )
         self._image_processor = Siglip2ImageProcessor.from_pretrained(
             config.model_id,
             token=config.hf_token,
@@ -49,12 +60,6 @@ class Siglip2EmbeddingService:
             token=config.hf_token,
             cache_dir=str(config.model_dir),
             use_fast=False,
-        )
-        self._model = AutoModel.from_pretrained(
-            config.model_id,
-            token=config.hf_token,
-            cache_dir=str(config.model_dir),
-            torch_dtype=torch_dtype,
         )
         self._device = torch.device(config.device)
         self._model.to(self._device)
@@ -110,20 +115,25 @@ class Siglip2EmbeddingService:
                 for key, value in model_inputs.items()
                 if isinstance(value, torch.Tensor)
             }
-            pixel_values = tensors.get("pixel_values")
-            if isinstance(pixel_values, torch.Tensor):
-                if pixel_values.ndim == 3:
-                    tensors["pixel_values"] = pixel_values.unsqueeze(0)
-                elif pixel_values.ndim != 4:
-                    raise ValueError(
-                        "Expected SigLIP2 image tensor pixel_values to be 3D or 4D, "
-                        f"got shape {tuple(pixel_values.shape)}"
-                    )
+            self._coerce_pixel_values_shape(tensors)
             raw_features = self._model.get_image_features(**tensors)
             features = self._coerce_feature_tensor(raw_features)
             normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
             vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
         return self._normalise_vector(vector)
+
+    def _coerce_pixel_values_shape(self, tensors: dict[str, torch.Tensor]) -> None:
+        pixel_values = tensors.get("pixel_values")
+        if not isinstance(pixel_values, torch.Tensor):
+            raise ValueError("Image processor did not return a pixel_values tensor")
+        if pixel_values.ndim == 2:
+            tensors["pixel_values"] = pixel_values.unsqueeze(0)
+            return
+        if pixel_values.ndim != 3:
+            raise ValueError(
+                "Expected SigLIP2 pixel_values to be 2D or 3D, "
+                f"got shape {tuple(pixel_values.shape)}"
+            )
 
     def _coerce_feature_tensor(self, raw_features: Any) -> torch.Tensor:
         if isinstance(raw_features, torch.Tensor):
