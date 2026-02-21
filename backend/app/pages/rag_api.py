@@ -120,6 +120,16 @@ def _resolve_image_storage():
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
 
 
+def _resolve_image_embedder():
+    try:
+        return vector_store_registry.get_image_embedder()
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Image embedding model initialization failed: {exc}",
+        )
+
+
 def _validate_image_upload(file: UploadFile, image_bytes: bytes) -> str:
     if not image_bytes:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Image file is empty")
@@ -257,7 +267,7 @@ async def ingest_image(
     parsed_metadata = _parse_metadata_payload(metadata)
 
     image_store = vector_store_registry.get_image_vector_store(project)
-    image_embedder = vector_store_registry.get_image_embedder()
+    image_embedder = _resolve_image_embedder()
     object_storage = _resolve_image_storage()
 
     image_record = ProjectImage(
@@ -499,7 +509,7 @@ async def query_images_by_text(
         error_detail="Query rate limit exceeded. Upgrade to increase throughput.",
     )
 
-    image_embedder = vector_store_registry.get_image_embedder()
+    image_embedder = _resolve_image_embedder()
     image_store = vector_store_registry.get_image_vector_store(project)
 
     top_k = payload.top_k or project.top_k_default
@@ -559,7 +569,7 @@ async def query_images_by_image(
     if resolved_vector_k < 1 or resolved_vector_k > 200:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="vector_k must be between 1 and 200")
 
-    image_embedder = vector_store_registry.get_image_embedder()
+    image_embedder = _resolve_image_embedder()
     image_store = vector_store_registry.get_image_vector_store(project)
 
     embedding = await anyio.to_thread.run_sync(

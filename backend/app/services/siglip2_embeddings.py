@@ -9,7 +9,7 @@ from typing import Sequence
 import numpy as np
 import torch
 from PIL import Image
-from transformers import AutoModel, AutoProcessor
+from transformers import AutoModel, Siglip2ImageProcessor, Siglip2Tokenizer
 
 
 _TORCH_DTYPES = {
@@ -37,10 +37,18 @@ class Siglip2EmbeddingService:
         if torch_dtype is None:
             raise ValueError(f"Unsupported RAG_IMAGE_DTYPE: {config.dtype}")
 
-        self._processor = AutoProcessor.from_pretrained(
+        # Load image/text preprocessors explicitly to avoid AutoTokenizer mapping
+        # issues present in some transformers releases.
+        self._image_processor = Siglip2ImageProcessor.from_pretrained(
             config.model_id,
             token=config.hf_token,
             cache_dir=str(config.model_dir),
+        )
+        self._tokenizer = Siglip2Tokenizer.from_pretrained(
+            config.model_id,
+            token=config.hf_token,
+            cache_dir=str(config.model_dir),
+            use_fast=False,
         )
         self._model = AutoModel.from_pretrained(
             config.model_id,
@@ -66,19 +74,19 @@ class Siglip2EmbeddingService:
         if not query.strip():
             raise ValueError("Text query cannot be empty")
         with self._lock:
-            model_inputs = self._processor(text=[query], return_tensors="pt", padding=True)
+            model_inputs = self._tokenizer([query], return_tensors="pt", padding=True)
             return self._encode_text_inputs(model_inputs)
 
     def embed_image(self, *, image_bytes: bytes) -> Sequence[float]:
         with Image.open(io.BytesIO(image_bytes)) as image:
             rgb_image = image.convert("RGB")
         with self._lock:
-            model_inputs = self._processor(images=[rgb_image], return_tensors="pt")
+            model_inputs = self._image_processor(images=[rgb_image], return_tensors="pt")
             return self._encode_image_inputs(model_inputs)
 
     def _detect_embedding_dim(self) -> int:
         with torch.inference_mode():
-            model_inputs = self._processor(text=["dimension probe"], return_tensors="pt", padding=True)
+            model_inputs = self._tokenizer(["dimension probe"], return_tensors="pt", padding=True)
             embedding = self._encode_text_inputs(model_inputs)
             return len(embedding)
 

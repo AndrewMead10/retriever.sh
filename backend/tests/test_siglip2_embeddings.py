@@ -7,14 +7,18 @@ import torch
 from app.services.siglip2_embeddings import Siglip2Config, Siglip2EmbeddingService
 
 
-class _StubProcessor:
-    def __call__(self, *, text=None, images=None, return_tensors="pt", padding=False):
+class _StubTokenizer:
+    def __call__(self, text, return_tensors="pt", padding=False):
         assert return_tensors == "pt"
-        if text is not None:
-            return {"input_ids": torch.tensor([[1, 2, 3]])}
-        if images is not None:
-            return {"pixel_values": torch.zeros((1, 3, 2, 2), dtype=torch.float32)}
-        raise AssertionError("Processor called without text or images")
+        assert text is not None
+        return {"input_ids": torch.tensor([[1, 2, 3]])}
+
+
+class _StubImageProcessor:
+    def __call__(self, *, images=None, return_tensors="pt"):
+        assert return_tensors == "pt"
+        assert images is not None
+        return {"pixel_values": torch.zeros((1, 3, 2, 2), dtype=torch.float32)}
 
 
 class _StubModel:
@@ -33,8 +37,12 @@ class _StubModel:
 
 def _build_service(monkeypatch: pytest.MonkeyPatch, *, embed_dim: int) -> Siglip2EmbeddingService:
     monkeypatch.setattr(
-        "app.services.siglip2_embeddings.AutoProcessor.from_pretrained",
-        lambda *args, **kwargs: _StubProcessor(),
+        "app.services.siglip2_embeddings.Siglip2Tokenizer.from_pretrained",
+        lambda *args, **kwargs: _StubTokenizer(),
+    )
+    monkeypatch.setattr(
+        "app.services.siglip2_embeddings.Siglip2ImageProcessor.from_pretrained",
+        lambda *args, **kwargs: _StubImageProcessor(),
     )
     monkeypatch.setattr(
         "app.services.siglip2_embeddings.AutoModel.from_pretrained",
