@@ -153,8 +153,19 @@ class VespaClient:
             fields = hit.get("fields") or {}
             if not fields:
                 continue
-            results.append(fields)
+            row = dict(fields)
+            row["_vespa_relevance"] = self._coerce_relevance(hit.get("relevance"))
+            results.append(row)
+        results.sort(key=lambda row: float(row.get("_vespa_relevance", 0.0)), reverse=True)
         return results
+
+    def _coerce_relevance(self, value: Any) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
 
 
 class VespaVectorStore:

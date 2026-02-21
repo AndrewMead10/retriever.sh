@@ -108,3 +108,40 @@ def test_upsert_sends_source_embedding_field_for_binarize_pipeline(monkeypatch):
     assert "embedding_float" in client.fields
     assert client.fields["embedding_float"] == {"values": [0.1, 0.2, -0.3, 0.4, 1.0, -2.0, 3.0, -4.0]}
     assert "embedding" not in client.fields
+
+
+def test_execute_search_sorts_rows_by_relevance_descending():
+    class _Response:
+        status_code = 200
+        text = ""
+
+        @staticmethod
+        def json():
+            return {
+                "root": {
+                    "children": [
+                        {"relevance": 0.15, "fields": {"document_id": 10, "title": "third"}},
+                        {"relevance": 0.95, "fields": {"document_id": 11, "title": "first"}},
+                        {"relevance": "0.60", "fields": {"document_id": 12, "title": "second"}},
+                    ]
+                }
+            }
+
+    class _Client:
+        @staticmethod
+        def post(url: str, json):
+            return _Response()
+
+    client = VespaClient(
+        endpoint="http://localhost:8080",
+        namespace="rag",
+        document_type="rag_document",
+        rank_profile="rag-hybrid",
+        timeout=5.0,
+    )
+    client._client = _Client()  # type: ignore[assignment]
+
+    rows = client._execute_search({"yql": "select * from sources * where true"})
+
+    assert [row["document_id"] for row in rows] == [11, 12, 10]
+    assert [row["_vespa_relevance"] for row in rows] == [0.95, 0.6, 0.15]
