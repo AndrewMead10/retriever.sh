@@ -8,7 +8,7 @@ from typing import Dict
 from ..config import settings
 from ..database.models import Project
 from .siglip2_embeddings import Siglip2Config, Siglip2EmbeddingService
-from .vectorlab import EmbeddingConfig, EmbeddingService
+from .text_embeddings import EmbeddingConfig, EmbeddingService
 from .vespa_image_store import VespaImageStore
 from .vespa_store import VespaClient, VespaVectorStore
 

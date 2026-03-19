@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import threading
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -10,6 +11,13 @@ import numpy as np
 import torch
 from PIL import Image
 from transformers import AutoModel, Siglip2ImageProcessor, Siglip2Tokenizer
+
+from ..config import settings
+
+if settings.logfire_enabled:
+    import logfire
+else:
+    logfire = None
 
 
 _TORCH_DTYPES = {
@@ -78,21 +86,36 @@ class Siglip2EmbeddingService:
     def embed_text(self, *, query: str) -> Sequence[float]:
         if not query.strip():
             raise ValueError("Text query cannot be empty")
-        with self._lock:
-            model_inputs = self._tokenizer(
-                [query],
-                return_tensors="pt",
-                padding="max_length",
-                truncation=True,
-            )
-            return self._encode_text_inputs(model_inputs)
+        with _logfire_span(
+            "SigLIP2 text embedding pipeline",
+            query_length=len(query),
+            target_dim=self._actual_dim,
+        ):
+            with self._lock:
+                with _logfire_span("Tokenize text query for SigLIP2"):
+                    model_inputs = self._tokenizer(
+                        [query],
+                        return_tensors="pt",
+                        padding="max_length",
+                        truncation=True,
+                    )
+                with _logfire_span("Encode SigLIP2 text features"):
+                    return self._encode_text_inputs(model_inputs)
 
     def embed_image(self, *, image_bytes: bytes) -> Sequence[float]:
-        with Image.open(io.BytesIO(image_bytes)) as image:
-            rgb_image = image.convert("RGB")
-        with self._lock:
-            model_inputs = self._image_processor(images=[rgb_image], return_tensors="pt")
-            return self._encode_image_inputs(model_inputs)
+        with _logfire_span(
+            "SigLIP2 image embedding pipeline",
+            image_bytes=len(image_bytes),
+            target_dim=self._actual_dim,
+        ):
+            with _logfire_span("Decode image bytes to RGB"):
+                with Image.open(io.BytesIO(image_bytes)) as image:
+                    rgb_image = image.convert("RGB")
+            with self._lock:
+                with _logfire_span("Preprocess image for SigLIP2"):
+                    model_inputs = self._image_processor(images=[rgb_image], return_tensors="pt")
+                with _logfire_span("Encode SigLIP2 image features"):
+                    return self._encode_image_inputs(model_inputs)
 
     def _detect_embedding_dim(self) -> int:
         with torch.inference_mode():
@@ -106,31 +129,44 @@ class Siglip2EmbeddingService:
             return len(embedding)
 
     def _encode_text_inputs(self, model_inputs: dict) -> Sequence[float]:
-        with torch.inference_mode():
-            tensors = {
-                key: value.to(self._device)
-                for key, value in model_inputs.items()
-                if isinstance(value, torch.Tensor)
-            }
-            raw_features = self._model.get_text_features(**tensors)
-            features = self._coerce_feature_tensor(raw_features)
-            normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
-            vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
-        return self._normalise_vector(vector)
+        with _logfire_span("SigLIP2 text feature extraction"):
+            with torch.inference_mode():
+                with _logfire_span("Move text tensors to inference device"):
+                    tensors = {
+                        key: value.to(self._device)
+                        for key, value in model_inputs.items()
+                        if isinstance(value, torch.Tensor)
+                    }
+                with _logfire_span("Run SigLIP2 text forward pass"):
+                    raw_features = self._model.get_text_features(**tensors)
+                with _logfire_span("Coerce SigLIP2 text feature tensor"):
+                    features = self._coerce_feature_tensor(raw_features)
+                with _logfire_span("L2-normalise text feature tensor"):
+                    normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
+                with _logfire_span("Transfer text embedding to CPU"):
+                    vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
+            return self._normalise_vector(vector)
 
     def _encode_image_inputs(self, model_inputs: dict) -> Sequence[float]:
-        with torch.inference_mode():
-            tensors = {
-                key: value.to(self._device)
-                for key, value in model_inputs.items()
-                if isinstance(value, torch.Tensor)
-            }
-            self._coerce_pixel_values_shape(tensors)
-            raw_features = self._model.get_image_features(**tensors)
-            features = self._coerce_feature_tensor(raw_features)
-            normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
-            vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
-        return self._normalise_vector(vector)
+        with _logfire_span("SigLIP2 image feature extraction"):
+            with torch.inference_mode():
+                with _logfire_span("Move image tensors to inference device"):
+                    tensors = {
+                        key: value.to(self._device)
+                        for key, value in model_inputs.items()
+                        if isinstance(value, torch.Tensor)
+                    }
+                with _logfire_span("Validate SigLIP2 pixel_values tensor shape"):
+                    self._coerce_pixel_values_shape(tensors)
+                with _logfire_span("Run SigLIP2 image forward pass"):
+                    raw_features = self._model.get_image_features(**tensors)
+                with _logfire_span("Coerce SigLIP2 image feature tensor"):
+                    features = self._coerce_feature_tensor(raw_features)
+                with _logfire_span("L2-normalise image feature tensor"):
+                    normalised = torch.nn.functional.normalize(features, p=2, dim=-1)
+                with _logfire_span("Transfer image embedding to CPU"):
+                    vector = normalised[0].detach().to("cpu", dtype=torch.float32).numpy()
+            return self._normalise_vector(vector)
 
     def _coerce_pixel_values_shape(self, tensors: dict[str, torch.Tensor]) -> None:
         pixel_values = tensors.get("pixel_values")
@@ -168,8 +204,20 @@ class Siglip2EmbeddingService:
 
     def _normalise_vector(self, vector: np.ndarray) -> Sequence[float]:
         expected_dim = getattr(self, "_actual_dim", vector.shape[0])
-        if vector.shape[0] != expected_dim:
-            raise ValueError(
-                f"Unexpected embedding size from SigLIP2: expected {expected_dim}, got {vector.shape[0]}"
-            )
-        return vector.tolist()
+        with _logfire_span(
+            "Validate SigLIP2 embedding dimensions",
+            expected_dim=int(expected_dim),
+            actual_dim=int(vector.shape[0]),
+        ):
+            if vector.shape[0] != expected_dim:
+                raise ValueError(
+                    f"Unexpected embedding size from SigLIP2: expected {expected_dim}, got {vector.shape[0]}"
+                )
+        with _logfire_span("Serialise SigLIP2 embedding vector"):
+            return vector.tolist()
+
+
+def _logfire_span(message_template: str, **attributes: int):
+    if settings.logfire_enabled and logfire is not None:
+        return logfire.span(message_template, **attributes)
+    return nullcontext()

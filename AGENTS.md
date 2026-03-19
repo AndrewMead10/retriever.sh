@@ -55,6 +55,8 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - SigLIP2 text-query padding fix (Feb 21, 2026): image text embeddings now tokenize with `padding="max_length"` + truncation (matching Transformers SigLIP2 guidance) instead of dynamic padding, reducing query embedding drift for short prompts.
 - Image query score visibility (Feb 21, 2026): image query responses now include optional `score` sourced from Vespa relevance (`_vespa_relevance`) to make ranking/debugging observable from `/api/rag/projects/{project_id}/images/query/text|image`.
 - Image model cutover to so400m (Feb 21, 2026): defaults now use `google/siglip2-so400m-patch16-naflex` with `RAG_IMAGE_EMBED_DIM=1152` and `VESPA_IMAGE_EMBED_DIM=1152`; `vespa/schemas/rag_image.sd` tensor dimensions were updated to `x[1152]`. Existing image indexes must be rebuilt (re-embed/re-ingest) after deploying the new Vespa schema.
+- Embedding-stage Logfire timing (Feb 21, 2026): text query, image text-query, and image image-query endpoints now use nested `logfire.span(...)` blocks around embed/search/usage/result-mapping stages, and both llama.cpp + SigLIP2 embedding services emit internal spans for prompt/tokenization, model forward pass, normalization, and vector serialization so per-stage durations are visible in Logfire traces.
+- Text embedding module cleanup (Mar 18, 2026): the legacy `backend/app/services/vectorlab/` package was flattened into `backend/app/services/text_embeddings.py`; `vectorlab` was only a carryover name from the predecessor project and is no longer the canonical import path.
 
 ---
 

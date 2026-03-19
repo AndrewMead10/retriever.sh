@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.services.vectorlab.embeddings import EmbeddingConfig, EmbeddingService
+from app.services.text_embeddings import EmbeddingConfig, EmbeddingService
 
 
 class _StubLlama:
@@ -51,4 +51,3 @@ def test_embed_query_raises_when_model_output_is_too_small(monkeypatch: pytest.M
 
     with pytest.raises(ValueError, match="expected at least 256, got 128"):
         service.embed_query(query="test")
-

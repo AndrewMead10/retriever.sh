@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import datetime
 import logging
 import json
@@ -14,6 +15,8 @@ from sqlalchemy.orm import Session
 from ..config import settings
 if settings.logfire_enabled:
     import logfire
+else:
+    logfire = None
 
 from ..database import get_db
 from ..database.models import User, UserSubscription, Plan, Project, ProjectDocument, ProjectImage
@@ -37,6 +40,12 @@ from ..services.vector_store import vector_store_registry
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 logger = logging.getLogger(__name__)
+
+
+def _logfire_span(message_template: str, **attributes: Any):
+    if settings.logfire_enabled and logfire is not None:
+        return logfire.span(message_template, **attributes)
+    return nullcontext()
 
 
 def _load_project(session: Session, project_id: str) -> Project:
@@ -476,27 +485,45 @@ async def query_project(
     top_k = payload.top_k or project.top_k_default
     vector_k = payload.vector_k or max(project.vector_search_k, top_k)
 
-    embedding = await anyio.to_thread.run_sync(lambda: embedder.embed_query(query=payload.query))
-    fts_query = normalise_fts_query(payload.query)
+    with _logfire_span(
+        "RAG text query pipeline",
+        project_id=project_id,
+        query_length=len(payload.query),
+        top_k=top_k,
+        vector_k=vector_k,
+    ):
+        with _logfire_span("Generate text query embedding", project_id=project_id):
+            embedding = await anyio.to_thread.run_sync(lambda: embedder.embed_query(query=payload.query))
 
-    rows = await anyio.to_thread.run_sync(
-        lambda: vector_store.hybrid_search(
-            embedding=embedding,
-            vector_k=vector_k,
-            top_k=top_k,
-            weight_vector=project.hybrid_weight_vector,
-            weight_text=project.hybrid_weight_text,
-            fts_query=fts_query,
-        )
-    )
+        with _logfire_span("Normalise full-text search query", project_id=project_id):
+            fts_query = normalise_fts_query(payload.query)
 
-    increment_usage(db, user=user, queries=1)
-    db.commit()
+        with _logfire_span("Execute hybrid text search", project_id=project_id):
+            rows = await anyio.to_thread.run_sync(
+                lambda: vector_store.hybrid_search(
+                    embedding=embedding,
+                    vector_k=vector_k,
+                    top_k=top_k,
+                    weight_vector=project.hybrid_weight_vector,
+                    weight_text=project.hybrid_weight_text,
+                    fts_query=fts_query,
+                )
+            )
 
-    results = [QueryResult.model_validate(_vespa_hit_to_response(row)) for row in rows]
+    with _logfire_span(
+        "Persist text query usage",
+        project_id=project_id,
+        user_id=user.id,
+        result_count=len(rows),
+    ):
+        increment_usage(db, user=user, queries=1)
+        db.commit()
+
+    with _logfire_span("Map text query results", project_id=project_id, result_count=len(rows)):
+        results = [QueryResult.model_validate(_vespa_hit_to_response(row)) for row in rows]
 
     # Log query success if LogFire is enabled
-    if settings.logfire_enabled:
+    if settings.logfire_enabled and logfire is not None:
         logfire.info(
             "RAG query completed successfully",
             project_id=project_id,
@@ -540,21 +567,37 @@ async def query_images_by_text(
     top_k = payload.top_k or project.top_k_default
     vector_k = payload.vector_k or max(project.vector_search_k, top_k)
 
-    embedding = await anyio.to_thread.run_sync(
-        lambda: image_embedder.embed_text(query=payload.query)
-    )
-    rows = await anyio.to_thread.run_sync(
-        lambda: image_store.search(
-            embedding=embedding,
-            vector_k=vector_k,
-            top_k=top_k,
-        )
-    )
+    with _logfire_span(
+        "RAG image text-query pipeline",
+        project_id=project_id,
+        query_length=len(payload.query),
+        top_k=top_k,
+        vector_k=vector_k,
+    ):
+        with _logfire_span("Generate SigLIP2 text embedding", project_id=project_id):
+            embedding = await anyio.to_thread.run_sync(
+                lambda: image_embedder.embed_text(query=payload.query)
+            )
+        with _logfire_span("Execute image vector search from text query", project_id=project_id):
+            rows = await anyio.to_thread.run_sync(
+                lambda: image_store.search(
+                    embedding=embedding,
+                    vector_k=vector_k,
+                    top_k=top_k,
+                )
+            )
 
-    increment_usage(db, user=user, queries=1)
-    db.commit()
+    with _logfire_span(
+        "Persist image text-query usage",
+        project_id=project_id,
+        user_id=user.id,
+        result_count=len(rows),
+    ):
+        increment_usage(db, user=user, queries=1)
+        db.commit()
 
-    results = [ImageQueryResult.model_validate(_vespa_image_hit_to_response(row)) for row in rows]
+    with _logfire_span("Map image text-query results", project_id=project_id, result_count=len(rows)):
+        results = [ImageQueryResult.model_validate(_vespa_image_hit_to_response(row)) for row in rows]
     return ImageQueryResponse(results=results)
 
 
@@ -584,8 +627,14 @@ async def query_images_by_image(
         error_detail="Query rate limit exceeded. Upgrade to increase throughput.",
     )
 
-    image_bytes = await image.read()
-    _validate_image_upload(image, image_bytes)
+    with _logfire_span("Read uploaded image query bytes", project_id=project_id):
+        image_bytes = await image.read()
+    with _logfire_span(
+        "Validate uploaded image query payload",
+        project_id=project_id,
+        image_bytes=len(image_bytes),
+    ):
+        _validate_image_upload(image, image_bytes)
 
     resolved_top_k = top_k or project.top_k_default
     resolved_vector_k = vector_k or max(project.vector_search_k, resolved_top_k)
@@ -598,16 +647,25 @@ async def query_images_by_image(
     image_store = vector_store_registry.get_image_vector_store(project)
 
     try:
-        embedding = await anyio.to_thread.run_sync(
-            lambda: image_embedder.embed_image(image_bytes=image_bytes)
-        )
-        rows = await anyio.to_thread.run_sync(
-            lambda: image_store.search(
-                embedding=embedding,
-                vector_k=resolved_vector_k,
-                top_k=resolved_top_k,
-            )
-        )
+        with _logfire_span(
+            "RAG image image-query pipeline",
+            project_id=project_id,
+            image_bytes=len(image_bytes),
+            top_k=resolved_top_k,
+            vector_k=resolved_vector_k,
+        ):
+            with _logfire_span("Generate SigLIP2 image embedding", project_id=project_id):
+                embedding = await anyio.to_thread.run_sync(
+                    lambda: image_embedder.embed_image(image_bytes=image_bytes)
+                )
+            with _logfire_span("Execute image vector search from image query", project_id=project_id):
+                rows = await anyio.to_thread.run_sync(
+                    lambda: image_store.search(
+                        embedding=embedding,
+                        vector_k=resolved_vector_k,
+                        top_k=resolved_top_k,
+                    )
+                )
     except Exception as exc:
         if isinstance(exc, ValueError):
             raise HTTPException(
@@ -619,8 +677,15 @@ async def query_images_by_image(
             detail="Failed to process image query",
         ) from exc
 
-    increment_usage(db, user=user, queries=1)
-    db.commit()
+    with _logfire_span(
+        "Persist image image-query usage",
+        project_id=project_id,
+        user_id=user.id,
+        result_count=len(rows),
+    ):
+        increment_usage(db, user=user, queries=1)
+        db.commit()
 
-    results = [ImageQueryResult.model_validate(_vespa_image_hit_to_response(row)) for row in rows]
+    with _logfire_span("Map image image-query results", project_id=project_id, result_count=len(rows)):
+        results = [ImageQueryResult.model_validate(_vespa_image_hit_to_response(row)) for row in rows]
     return ImageQueryResponse(results=results)
