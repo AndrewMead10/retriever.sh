@@ -178,13 +178,6 @@ export function BillingPage({ status }: { status?: BillingStatus }) {
               >
                 <Link to="/projects">[ BACK TO PROJECTS ]</Link>
               </Button>
-              <Button
-                variant="ghost"
-                asChild
-                className="bg-card border border-foreground dither-border sharp-corners font-bold hover:bg-muted transition-all duration-200"
-              >
-                <Link to="/pricing">[ VIEW PRICING ]</Link>
-              </Button>
               {!needsSubscription && (
                 <Button
                   onClick={() => portal.mutate()}

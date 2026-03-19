@@ -79,25 +79,6 @@ def create_checkout_session(user: User, plan_slug: str) -> str:
         if current_subscription is not None:
             if current_subscription.plan_id == plan.id:
                 return settings.polar_portal_return_url
-            if current_subscription.polar_subscription_id:
-                try:
-                    updated_subscription = client.subscriptions.update(
-                        id=current_subscription.polar_subscription_id,
-                        subscription_update={
-                            "product_id": plan.polar_product_id,
-                        },
-                    )
-                except Exception as exc:  # pragma: no cover
-                    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unable to update subscription") from exc
-
-                update_subscription_state(
-                    db,
-                    user=db_user,
-                    subscription_payload=updated_subscription,
-                    fallback_plan=plan,
-                )
-                db.commit()
-                return config.success_url
             return create_billing_portal(db_user)
 
     try:

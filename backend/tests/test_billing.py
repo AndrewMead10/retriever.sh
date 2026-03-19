@@ -120,7 +120,10 @@ def _seed_rate_limit_buckets(session: Session, *, user_id: int, query_limit: int
     session.flush()
 
 
-def test_create_checkout_session_updates_existing_subscription(session: Session, monkeypatch: pytest.MonkeyPatch):
+def test_create_checkout_session_redirects_existing_subscription_to_portal(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+):
     tinkering = _seed_plan(
         session,
         slug="tinkering",
@@ -150,15 +153,7 @@ def test_create_checkout_session_updates_existing_subscription(session: Session,
     _seed_rate_limit_buckets(session, user_id=user.id, query_limit=tinkering.query_qps_limit, ingest_limit=tinkering.ingest_qps_limit)
     session.commit()
 
-    subscription_response = SimpleNamespace(
-        id="sub_123",
-        customer_id="cust_123",
-        status=SimpleNamespace(value="active"),
-        current_period_end=None,
-        cancel_at_period_end=False,
-        product_id=building.polar_product_id,
-    )
-    stub_client = _StubPolarClient(subscription_response=subscription_response)
+    stub_client = _StubPolarClient()
 
     @contextmanager
     def _get_db_session():
@@ -176,20 +171,19 @@ def test_create_checkout_session_updates_existing_subscription(session: Session,
     query_bucket = next(bucket for bucket in user.rate_limit_buckets if bucket.limit_type == "query")
     ingest_bucket = next(bucket for bucket in user.rate_limit_buckets if bucket.limit_type == "ingest")
 
-    assert url == settings.polar_success_url
-    assert stub_client.subscription_update_calls == [
-        (
-            "sub_123",
-            {
-                "product_id": building.polar_product_id,
-            },
-        )
-    ]
+    assert url == "https://polar.example/portal"
+    assert stub_client.subscription_update_calls == []
     assert stub_client.checkout_calls == []
+    assert stub_client.customer_session_calls == [
+        {
+            "external_customer_id": f"user-{user.id}",
+            "return_url": settings.polar_portal_return_url,
+        }
+    ]
     assert user.subscription is not None
-    assert user.subscription.plan_id == building.id
-    assert query_bucket.max_tokens == building.query_qps_limit
-    assert ingest_bucket.max_tokens == building.ingest_qps_limit
+    assert user.subscription.plan_id == tinkering.id
+    assert query_bucket.max_tokens == tinkering.query_qps_limit
+    assert ingest_bucket.max_tokens == tinkering.ingest_qps_limit
 
 
 def test_create_checkout_session_creates_checkout_for_new_subscription(session: Session, monkeypatch: pytest.MonkeyPatch):

@@ -248,7 +248,7 @@ function ProjectsPage() {
                       asChild
                       className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text"
                     >
-                      <Link to="/pricing">[ UPGRADE PLAN ]</Link>
+                      <Link to="/billing">[ UPGRADE PLAN ]</Link>
                     </Button>
                   </DialogFooter>
                 </div>
