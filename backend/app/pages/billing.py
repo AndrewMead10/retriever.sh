@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db, get_db_session
-from ..database.models import Plan
+from ..database.models import Plan, UserSubscription
 from ..functions.accounts import (
     get_user,
     get_user_and_plan,
@@ -42,6 +42,31 @@ def _extract_metadata(payload: Any) -> dict[str, Any]:
         return dict(metadata)
     except Exception:  # pragma: no cover - defensive
         return {}
+
+
+def _resolve_webhook_user(db: Session, payload: Any):
+    metadata = _extract_metadata(getattr(payload, "metadata", None))
+    user_id = metadata.get("user_id")
+    if user_id:
+        return get_user_by_id(db, int(user_id))
+
+    subscription_id = getattr(payload, "id", None)
+    if subscription_id:
+        user_subscription = db.execute(
+            select(UserSubscription).where(UserSubscription.polar_subscription_id == subscription_id)
+        ).scalar_one_or_none()
+        if user_subscription is not None:
+            return user_subscription.user
+
+    customer_id = getattr(payload, "customer_id", None)
+    if customer_id:
+        user_subscription = db.execute(
+            select(UserSubscription).where(UserSubscription.polar_customer_id == customer_id)
+        ).scalar_one_or_none()
+        if user_subscription is not None:
+            return user_subscription.user
+
+    return None
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -131,15 +156,10 @@ async def polar_webhook(
             db.commit()
 
     elif event_type in {"subscription.updated", "subscription.active", "subscription.uncanceled"}:
-        metadata = _extract_metadata(data.metadata) if hasattr(data, 'metadata') else _extract_metadata(data.get("metadata") if isinstance(data, dict) else {})
-        user_id = metadata.get("user_id")
-        if not user_id:
-            return {"received": True}
-
         with get_db_session() as db:
-            user = get_user_by_id(db, int(user_id))
+            user = _resolve_webhook_user(db, data)
             if user is None:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found for webhook")
+                return {"received": True}
 
             subscription_payload = data
             update_subscription_state(
@@ -150,13 +170,8 @@ async def polar_webhook(
             db.commit()
 
     elif event_type in {"subscription.canceled", "subscription.revoked"}:
-        metadata = _extract_metadata(data.metadata) if hasattr(data, 'metadata') else _extract_metadata(data.get("metadata") if isinstance(data, dict) else {})
-        user_id = metadata.get("user_id")
-        if not user_id:
-            return {"received": True}
-
         with get_db_session() as db:
-            user = get_user_by_id(db, int(user_id))
+            user = _resolve_webhook_user(db, data)
             if user and user.subscription:
                 user.subscription.status = "canceled"
                 user.subscription.cancel_at_period_end = True

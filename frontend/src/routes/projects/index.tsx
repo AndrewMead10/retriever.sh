@@ -200,6 +200,7 @@ function ProjectsPage() {
   const usage = data?.usage
   const projects = data?.projects ?? []
   const projectLimit = usage?.project_limit ?? null
+  const atProjectLimit = projectLimit !== null && (usage?.project_count ?? 0) >= projectLimit
   const projectPercent = projectLimit
     ? Math.min(100, Math.round((usage!.project_count / projectLimit) * 100))
     : 0
@@ -229,46 +230,72 @@ function ProjectsPage() {
               <DialogHeader>
                 <DialogTitle className="font-bold dither-text">NEW PROJECT</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="project-name" className="font-bold text-xs">// NAME</Label>
-                  <Input
-                    id="project-name"
-                    placeholder="My App"
-                    value={formState.name}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                    className="bg-background border border-foreground dither-border sharp-corners"
-                  />
+              {atProjectLimit ? (
+                <div className="space-y-4 py-2">
+                  <p className="text-sm font-mono-jetbrains">
+                    You've reached your plan limit of <span className="font-bold">{projectLimit}</span> project{projectLimit === 1 ? '' : 's'}.
+                    Upgrade your plan to create more.
+                  </p>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowCreate(false)}
+                      className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+                    >
+                      [ CANCEL ]
+                    </Button>
+                    <Button
+                      asChild
+                      className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text"
+                    >
+                      <Link to="/pricing">[ UPGRADE PLAN ]</Link>
+                    </Button>
+                  </DialogFooter>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-description" className="font-bold text-xs">// DESCRIPTION (optional)</Label>
-                  <Textarea
-                    id="project-description"
-                    rows={3}
-                    value={formState.description ?? ''}
-                    onChange={(event) =>
-                      setFormState((prev) => ({ ...prev, description: event.target.value }))
-                    }
-                    className="bg-background border border-foreground dither-border sharp-corners"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreate(false)}
-                  className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
-                >
-                  [ CANCEL ]
-                </Button>
-                <Button
-                  onClick={handleCreateProject}
-                  disabled={!formState.name || createProject.isPending || data?.needs_subscription}
-                  className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text"
-                >
-                  {createProject.isPending ? 'CREATING...' : '[ CREATE ]'}
-                </Button>
-              </DialogFooter>
+              ) : (
+                <>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="project-name" className="font-bold text-xs">// NAME</Label>
+                      <Input
+                        id="project-name"
+                        placeholder="My App"
+                        value={formState.name}
+                        onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+                        className="bg-background border border-foreground dither-border sharp-corners"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="project-description" className="font-bold text-xs">// DESCRIPTION (optional)</Label>
+                      <Textarea
+                        id="project-description"
+                        rows={3}
+                        value={formState.description ?? ''}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, description: event.target.value }))
+                        }
+                        className="bg-background border border-foreground dither-border sharp-corners"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowCreate(false)}
+                      className="bg-background border-2 border-foreground text-foreground sharp-corners font-bold hover:bg-foreground hover:text-background transition-all duration-200"
+                    >
+                      [ CANCEL ]
+                    </Button>
+                    <Button
+                      onClick={handleCreateProject}
+                      disabled={!formState.name || createProject.isPending || data?.needs_subscription}
+                      className="bg-foreground text-background border-2 border-foreground sharp-corners font-bold hover:bg-muted hover:text-foreground transition-all duration-200 dither-text"
+                    >
+                      {createProject.isPending ? 'CREATING...' : '[ CREATE ]'}
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -342,7 +369,7 @@ function ProjectsPage() {
               }
               help="Available per project"
             />
-            <MetricCard title="PROJECTS" value={`${usage.project_count}`}>
+            <MetricCard title="PROJECTS" value={projectLimit ? `${usage.project_count}/${projectLimit}` : `${usage.project_count}`}>
               {projectLimit && (
                 <Progress value={projectPercent} className="mt-2" />
               )}

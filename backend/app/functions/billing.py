@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Dict
 
 from fastapi import HTTPException, status
 from polar_sdk import Polar
@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..database.models import User, UserSubscription, Plan
+from ..database.models import Plan, User, UserSubscription
 from .accounts import apply_plan_limits
 
 
@@ -44,25 +44,63 @@ def _client(config: PolarConfig) -> Polar:
     return Polar(access_token=config.access_token, server=config.environment)
 
 
+def _get_plan_by_slug(session: Session, *, plan_slug: str) -> Plan:
+    plan = session.execute(select(Plan).where(Plan.slug == plan_slug)).scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    if not plan.polar_product_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Plan not configured for billing")
+    return plan
+
+
+def _get_plan_from_subscription_payload(session: Session, *, subscription_payload: Subscription) -> Plan | None:
+    product_id = getattr(subscription_payload, "product_id", None)
+    if not product_id:
+        product = getattr(subscription_payload, "product", None)
+        product_id = getattr(product, "id", None)
+    if not product_id:
+        return None
+    return session.execute(select(Plan).where(Plan.polar_product_id == product_id)).scalar_one_or_none()
+
+
 def create_checkout_session(user: User, plan_slug: str) -> str:
     config = _get_config()
     client = _client(config)
 
-    # Get plan from database
     from ..database import get_db_session
+
     with get_db_session() as db:
-        plan = db.execute(
-            select(Plan).where(Plan.slug == plan_slug)
-        ).scalar_one_or_none()
+        db_user = db.get(User, user.id)
+        if db_user is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+        plan = _get_plan_by_slug(db, plan_slug=plan_slug)
+        current_subscription = db_user.subscription
 
-        if plan is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Plan not found")
+        if current_subscription is not None:
+            if current_subscription.plan_id == plan.id:
+                return settings.polar_portal_return_url
+            if current_subscription.polar_subscription_id:
+                try:
+                    updated_subscription = client.subscriptions.update(
+                        id=current_subscription.polar_subscription_id,
+                        subscription_update={
+                            "product_id": plan.polar_product_id,
+                        },
+                    )
+                except Exception as exc:  # pragma: no cover
+                    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unable to update subscription") from exc
 
-        if not plan.polar_product_id:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Plan not configured for billing")
+                update_subscription_state(
+                    db,
+                    user=db_user,
+                    subscription_payload=updated_subscription,
+                    fallback_plan=plan,
+                )
+                db.commit()
+                return config.success_url
+            return create_billing_portal(db_user)
 
     try:
-        # Create checkout session with Polar
         checkout = client.checkouts.create(
             request={
                 "products": [plan.polar_product_id],
@@ -131,13 +169,18 @@ def handle_checkout_completed(
         if target_plan is None:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Target plan not found")
 
-        # Create subscription directly as active after successful payment
-        subscription = UserSubscription(
-            user_id=user.id,
-            plan_id=target_plan.id,
-            status="active",
-            polar_customer_id=order.customer_id,
-        )
+        subscription = user.subscription
+        if subscription is None:
+            subscription = UserSubscription(
+                user_id=user.id,
+                plan_id=target_plan.id,
+                status="active",
+                polar_customer_id=order.customer_id,
+            )
+        else:
+            subscription.plan_id = target_plan.id
+            subscription.status = "active"
+            subscription.polar_customer_id = order.customer_id
 
         # Sync subscription data from Polar if available
         if order.subscription is not None:
@@ -156,10 +199,22 @@ def update_subscription_state(
     *,
     user: User,
     subscription_payload: Subscription,
+    fallback_plan: Plan | None = None,
 ) -> None:
     user_subscription = user.subscription
+    target_plan = _get_plan_from_subscription_payload(session, subscription_payload=subscription_payload) or fallback_plan
+    if target_plan is None:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Subscription plan mapping missing")
+
     if user_subscription is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Subscription missing")
+        user_subscription = UserSubscription(
+            user_id=user.id,
+            plan_id=target_plan.id,
+            status="active",
+        )
+
+    user_subscription.plan_id = target_plan.id
 
     _sync_subscription(user_subscription, subscription_payload)
     session.add(user_subscription)
+    apply_plan_limits(session, user=user, plan=target_plan)
