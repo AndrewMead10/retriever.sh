@@ -44,7 +44,7 @@ class _StubPolarClient:
 
     def _create_customer_session(self, *, request: dict[str, object]):
         self.customer_session_calls.append(request)
-        return SimpleNamespace(url=self.portal_url)
+        return SimpleNamespace(customer_portal_url=self.portal_url)
 
 
 @pytest.fixture

@@ -140,7 +140,12 @@ def create_billing_portal(user: User) -> str:
             return f"https://polar.sh/{settings.polar_organization_slug}/portal"
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unable to open Polar billing portal") from exc
 
-    return customer_session.url
+    customer_portal_url = getattr(customer_session, "customer_portal_url", None) or getattr(customer_session, "customerPortalUrl", None)
+    if not customer_portal_url:
+        if settings.polar_organization_slug:
+            return f"https://polar.sh/{settings.polar_organization_slug}/portal"
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unable to open Polar billing portal")
+    return customer_portal_url
 
 
 def _sync_subscription(subscription_model: UserSubscription, payload: Subscription) -> None:
