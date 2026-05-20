@@ -60,6 +60,11 @@ def session() -> Session:
         engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def polar_test_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "polar_access_token", "test-polar-token")
+
+
 def _seed_plan(
     session: Session,
     *,
