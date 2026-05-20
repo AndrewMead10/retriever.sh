@@ -161,7 +161,7 @@ jobs:
 
           docker compose --env-file .deploy.env pull backend
           docker compose --env-file .deploy.env up -d db vespa
-          docker compose --env-file .deploy.env up --force-recreate --no-deps vespa-init
+          docker compose --env-file .deploy.env up --force-recreate --no-deps --exit-code-from vespa-init vespa-init
           docker compose --env-file .deploy.env run --rm backend uv run alembic upgrade head
           docker compose --env-file .deploy.env up -d backend
 
