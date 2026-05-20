@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: rag
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8="
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=}"
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -14,6 +14,22 @@ services:
       retries: 5
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    image: ${RETRIEVER_IMAGE:-dysondunbar/retriever:latest}
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${APP_DATABASE_URL:-postgresql+psycopg://postgres:SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=@db:5432/rag}
+      VESPA_ENDPOINT: ${APP_VESPA_ENDPOINT:-http://vespa:8080}
+    ports:
+      - "5656:5656"
+    depends_on:
+      db:
+        condition: service_healthy
+      vespa:
+        condition: service_healthy
     restart: unless-stopped
 
   vespa:
@@ -49,9 +65,6 @@ services:
       vespa:
         condition: service_healthy
     restart: "no"
-
-  # Backend now runs natively via systemd (retriever.service)
-  # See /etc/systemd/system/retriever.service
 
 volumes:
   postgres-data:

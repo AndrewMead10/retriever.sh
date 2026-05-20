@@ -1,0 +1,179 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEPLOY_HOST: 178.156.219.85
+  DEPLOY_USER: root
+  DEPLOY_PATH: /root/retriever.sh
+
+jobs:
+  test-build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set image metadata
+        id: image
+        shell: bash
+        run: |
+          IMAGE_NAME_LC="$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="$REGISTRY/$IMAGE_NAME_LC"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=$IMAGE:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=$IMAGE:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          JWT_SECRET: test-secret
+          LOGFIRE_ENABLED: "false"
+        run: uv run pytest
+
+      - name: Export OpenAPI schema
+        working-directory: backend
+        env:
+          JWT_SECRET: test-secret
+          LOGFIRE_ENABLED: "false"
+        run: uv run python -m app.scripts.export_openapi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate frontend API types
+        working-directory: frontend
+        run: |
+          cp ../backend/openapi.json openapi.json
+          npm run gen:types
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.sha_tag }}
+            ${{ steps.image.outputs.latest_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync deployment files
+        shell: bash
+        run: |
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH/scripts' '$DEPLOY_PATH/vespa'"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
+            docker-compose.yml scripts vespa \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+
+      - name: Pull image and deploy
+        shell: bash
+        env:
+          RETRIEVER_IMAGE: ${{ steps.image.outputs.sha_tag }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          APP_DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" \
+            "RETRIEVER_IMAGE='$RETRIEVER_IMAGE' GHCR_USERNAME='$GHCR_USERNAME' GHCR_TOKEN='$GHCR_TOKEN' APP_DATABASE_URL='$APP_DATABASE_URL' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          cd /root/retriever.sh
+
+          if [ ! -f .env ]; then
+            echo "Missing /root/retriever.sh/.env on the deployment host" >&2
+            exit 1
+          fi
+
+          DEFAULT_DATABASE_URL='postgresql+psycopg://postgres:SQtAQnz6tG/g5708tAZSNhDCzYlT23WJ1FKT76pbRF8=@db:5432/rag'
+          : "${APP_DATABASE_URL:=$DEFAULT_DATABASE_URL}"
+
+          if systemctl list-unit-files retriever.service >/dev/null 2>&1; then
+            systemctl stop retriever.service >/dev/null 2>&1 || true
+            systemctl disable retriever.service >/dev/null 2>&1 || true
+          fi
+
+          cat > .deploy.env <<EOF
+          RETRIEVER_IMAGE=$RETRIEVER_IMAGE
+          APP_DATABASE_URL=$APP_DATABASE_URL
+          APP_VESPA_ENDPOINT=http://vespa:8080
+          EOF
+
+          if [ -n "${GHCR_TOKEN:-}" ]; then
+            : "${GHCR_USERNAME:=root}"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+          fi
+
+          docker compose --env-file .deploy.env pull backend
+          docker compose --env-file .deploy.env up -d db vespa
+          docker compose --env-file .deploy.env up --force-recreate --no-deps vespa-init
+          docker compose --env-file .deploy.env run --rm backend uv run alembic upgrade head
+          docker compose --env-file .deploy.env up -d backend
+
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5656/readyz >/dev/null; then
+              docker image prune -f
+              echo "Deployment completed"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker compose --env-file .deploy.env logs --tail=200 backend
+          exit 1
+          REMOTE

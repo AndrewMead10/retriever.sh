@@ -41,7 +41,7 @@ class VespaClient:
         self,
         *,
         project_id: str,
-        embedding: Sequence[int],
+        embedding: Sequence[float],
         vector_k: int,
         top_k: int,
         weight_vector: float,
@@ -58,7 +58,7 @@ class VespaClient:
                 "profile": self._rank_profile,
             },
             "presentation": {"summary": "default"},
-            "input.query(query_embedding)": list(int(v) for v in embedding),
+            "input.query(query_embedding)": list(float(v) for v in embedding),
             "input.query(weight_vector)": weight_vector,
             "input.query(weight_text)": weight_text,
         }
@@ -70,26 +70,6 @@ class VespaClient:
         return self._execute_search(payload)
 
     def search_vector_only(
-        self,
-        *,
-        project_id: str,
-        embedding: Sequence[int],
-        vector_k: int,
-        top_k: int,
-    ) -> List[Dict[str, Any]]:
-        yql = self._build_vector_only_yql(project_id=project_id, vector_k=vector_k)
-        payload: Dict[str, Any] = {
-            "yql": yql,
-            "hits": top_k,
-            "ranking": {
-                "profile": self._rank_profile,
-            },
-            "presentation": {"summary": "default"},
-            "input.query(query_embedding)": list(int(v) for v in embedding),
-        }
-        return self._execute_search(payload)
-
-    def search_vector_only_float(
         self,
         *,
         project_id: str,
@@ -175,8 +155,6 @@ class VespaVectorStore:
         self._source_dim = settings.vespa_embedding_dim
         if self._source_dim <= 0:
             raise ValueError("VESPA_EMBED_DIM must be greater than zero")
-        if self._source_dim % 8 != 0:
-            raise ValueError("VESPA_EMBED_DIM must be divisible by 8 for Vespa pack_bits int8 embeddings")
 
     def upsert_document(self, *, document: ProjectDocument, embedding: Sequence[float]) -> None:
         embedding_vector = self._normalise_source_embedding(embedding)
@@ -188,7 +166,7 @@ class VespaVectorStore:
             "metadata": json.dumps(document.metadata_ or {}),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
-            "embedding_float": {"values": embedding_vector},
+            "embedding": {"values": embedding_vector},
         }
         self._client.upsert_document(document_id=document.vespa_document_id, fields=fields)
 
@@ -205,7 +183,7 @@ class VespaVectorStore:
         weight_text: float,
         fts_query: Optional[str],
     ) -> List[Dict[str, Any]]:
-        embedding_vector = self._pack_embedding_bits(embedding)
+        embedding_vector = self._normalise_source_embedding(embedding)
         return self._client.search(
             project_id=self._project_id,
             embedding=embedding_vector,
@@ -218,25 +196,6 @@ class VespaVectorStore:
 
     def _normalise_source_embedding(self, embedding: Sequence[float]) -> List[float]:
         values = [float(v) for v in embedding]
-        if len(values) > self._source_dim:
-            return values[: self._source_dim]
-        if len(values) < self._source_dim:
-            padding = [0.0] * (self._source_dim - len(values))
-            return values + padding
+        if len(values) != self._source_dim:
+            raise ValueError(f"Expected embedding dimension {self._source_dim}, got {len(values)}")
         return values
-
-    def _pack_embedding_bits(self, embedding: Sequence[float]) -> List[int]:
-        values = self._normalise_source_embedding(embedding)
-        packed_values: List[int] = []
-
-        for offset in range(0, len(values), 8):
-            chunk = values[offset : offset + 8]
-            byte_value = 0
-            for bit_offset, value in enumerate(chunk):
-                if value > 0:
-                    byte_value |= 1 << (7 - bit_offset)
-            if byte_value > 127:
-                byte_value -= 256
-            packed_values.append(byte_value)
-
-        return packed_values

@@ -1,5 +1,5 @@
 """
-Integration test for Vespa RAG endpoints.
+API test for RAG endpoints.
 
 Tests the complete flow:
 1. Upload documents to Vespa via the ingest endpoint
@@ -16,8 +16,8 @@ The YQL query generated is:
   select * from sources * where project_id = X AND active = true
   AND ({'targetHits':K}nearestNeighbor(embedding, query_embedding) OR userQuery())
 
-NOTE: This test requires Vespa to be running (e.g., via docker-compose).
-The test database is automatically cleaned up after each test run.
+The vector store boundary is stubbed so this test does not depend on a local
+Vespa deployment or a downloaded embedding model.
 """
 
 from datetime import datetime
@@ -40,6 +40,48 @@ from app.database.models import (
 )
 from app.functions.api_keys import generate_api_key, hash_api_key
 from app.main import app
+
+
+class _StubEmbedder:
+    def embed_document(self, *, title: str, text: str):
+        return [0.1] * 768
+
+    def embed_query(self, *, query: str):
+        return [0.2] * 768
+
+
+class _StubVectorStore:
+    def __init__(self) -> None:
+        self.documents = {}
+
+    def upsert_document(self, *, document: ProjectDocument, embedding):
+        self.documents[document.id] = {
+            "document_id": document.id,
+            "title": document.title,
+            "content": document.content,
+            "metadata": "{}",
+            "created_at": document.created_at,
+            "active": document.active,
+            "_vespa_relevance": 1.0,
+        }
+
+    def hybrid_search(
+        self,
+        *,
+        embedding,
+        vector_k: int,
+        top_k: int,
+        weight_vector: float,
+        weight_text: float,
+        fts_query: str | None,
+    ):
+        rows = [row for row in self.documents.values() if row["active"]]
+        return rows[:top_k]
+
+    def delete_document(self, document: ProjectDocument):
+        if document.id in self.documents:
+            self.documents[document.id]["active"] = False
+        return True
 
 
 @pytest.fixture
@@ -91,6 +133,12 @@ def test_client(session: Session, monkeypatch):
 
     # Disable logfire for tests to avoid logging issues
     monkeypatch.setattr(settings, "logfire_enabled", False)
+    vector_store = _StubVectorStore()
+
+    from app.pages import rag_api
+
+    monkeypatch.setattr(rag_api.vector_store_registry, "get_embedder", lambda project: _StubEmbedder())
+    monkeypatch.setattr(rag_api.vector_store_registry, "get_vector_store", lambda project: vector_store)
 
     def override_get_db():
         try:
@@ -179,11 +227,11 @@ def seeded_project(session: Session):
         name="Test RAG Project",
         description="Test project for Vespa RAG",
         slug="test-rag-project",
-        embedding_provider="llama.cpp",
-        embedding_model="nomic-embed-text-v1.5.Q8_0.gguf",
-        embedding_model_repo="nomic-ai/nomic-embed-text-v1.5-GGUF",
-        embedding_model_file="nomic-embed-text-v1.5.Q8_0.gguf",
-        embedding_dim=256,
+        embedding_provider="sentence-transformers",
+        embedding_model="lightonai/DenseOn",
+        embedding_model_repo="lightonai/DenseOn",
+        embedding_model_file=None,
+        embedding_dim=768,
         hybrid_weight_vector=0.7,
         hybrid_weight_text=0.3,
         top_k_default=5,
@@ -222,20 +270,17 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
         {
             "title": "Introduction to Machine Learning",
             "text": "Machine learning is a subset of artificial intelligence that focuses on building systems that learn from data. It enables computers to improve their performance on tasks without being explicitly programmed.",
-            "url": "https://example.com/ml-intro",
-            "published_at": "2024-01-15T10:00:00Z",
+            "metadata": {"source": "https://example.com/ml-intro"},
         },
         {
             "title": "Deep Learning Fundamentals",
             "text": "Deep learning uses neural networks with multiple layers to progressively extract higher-level features from raw input. It has revolutionized computer vision and natural language processing.",
-            "url": "https://example.com/deep-learning",
-            "published_at": "2024-01-16T14:30:00Z",
+            "metadata": {"source": "https://example.com/deep-learning"},
         },
         {
             "title": "Natural Language Processing Basics",
             "text": "Natural language processing (NLP) is a branch of artificial intelligence that helps computers understand, interpret and manipulate human language. NLP draws from many disciplines, including computer science and computational linguistics.",
-            "url": "https://example.com/nlp-basics",
-            "published_at": "2024-01-17T09:15:00Z",
+            "metadata": {"source": "https://example.com/nlp-basics"},
         },
     ]
 
@@ -258,7 +303,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
         # The response can have either 'text' or 'content' due to aliasing
         response_text = result.get("text") or result.get("content")
         assert response_text == doc["text"]
-        assert result["url"] == doc["url"]
+        assert result["metadata"] == doc["metadata"]
         assert "id" in result
         assert "created_at" in result
 
@@ -293,7 +338,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
         assert "id" in result
         assert "title" in result
         assert "text" in result or "content" in result
-        assert "url" in result
+        assert "metadata" in result
         print(f"  {idx}. {result['title']}")
 
     # Search for "deep learning"

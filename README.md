@@ -5,8 +5,8 @@ Production-ready FastAPI + React implementation that turns the original `vector-
 ## Highlights
 
 - 🔐 **Self-service accounts** – email/password auth with JWT refresh, automatic account provisioning, and single-user billing ready for future org support.
-- 🧱 **Project isolation** – each project stores its documents in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
-- 🖼️ **Multimodal retrieval** – text documents and images are indexed in separate Vespa schemas; image objects live in Cloudflare R2 and are embedded with SigLIP2.
+- 🧱 **Project isolation** – each project stores its text documents in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
+- 🔎 **Text retrieval** – DenseOn embeddings and Vespa hybrid ranking power project-scoped document search without a separate image pipeline.
 - ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Tinkering, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
 - 💳 **Polar integration** – plan checkout, self-service portal hand-off, and webhook handlers to activate subscriptions and keep limits in sync.
 - 🌗 **Light/Dark UI** – React + TanStack Router frontend with Tailwind v4 theming, project dashboard, and one-click theme toggle.
@@ -25,12 +25,9 @@ Key additions beyond the base template:
 
 | Variable | Purpose |
 | --- | --- |
-| `RAG_MODEL_REPO` / `RAG_MODEL_FILENAME` | Hugging Face repo + GGUF file for embeddings (defaults to the nomic model from `vector-lab-rag`). |
-| `RAG_EMBED_DIM` | Embedding dimension used after Matryoshka truncation (default `256`). |
-| `RAG_IMAGE_MODEL_ID` | SigLIP2 model ID for image/text multimodal embeddings (default `google/siglip2-so400m-patch16-naflex`). |
-| `RAG_IMAGE_EMBED_DIM` | SigLIP2 embedding dimension (default `1152`). |
-| `R2_IMAGES_BUCKET` | Cloudflare R2 bucket used to store uploaded image binaries. Falls back to `R2_BUCKET` if unset. |
-| `R2_IMAGES_PUBLIC_BASE_URL` | Optional public base URL for image delivery. If unset, API responses return presigned URLs. |
+| `RAG_MODEL_ID` | Hugging Face Sentence Transformers model ID for text embeddings (default `lightonai/DenseOn`). |
+| `RAG_MODEL_DIR` | Local cache directory for embedding models (default `models/sentence-transformers`). |
+| `RAG_EMBED_DIM` | Text embedding dimension expected by Vespa (default `768`). |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |
 | `POLAR_PRODUCT_TINKERING_ID` | Polar product ID for the Tinkering plan subscription. |
 | `POLAR_PRODUCT_BUILDING_ID` | Polar product ID for the Building plan subscription. |
@@ -72,37 +69,27 @@ For production builds, run `npm run build` from `frontend/`. The compiled assets
 
 ### 4. Production Deployment
 
-The production deployment uses native uvicorn (managed by systemd) with PostgreSQL and Vespa running in Docker.
+Production deploys through GitHub Actions in `.github/workflows/deploy.yml`.
 
-**Initial setup:**
-```bash
-# Start database containers
-docker compose up -d
+On pushes to `main`, the workflow:
+- runs backend tests and frontend typecheck
+- builds the Docker image, including frontend static assets
+- pushes the image to GitHub Container Registry
+- SSHes to `root@178.156.219.85`
+- syncs `docker-compose.yml`, `scripts/deploy-vespa.sh`, and `vespa/`
+- pulls the new backend image
+- starts PostgreSQL and Vespa
+- deploys the Vespa application package
+- runs `alembic upgrade head`
+- starts/restarts the backend container
 
-# Build frontend
-cd frontend && npm install && npm run build
+Required GitHub secrets:
+- `DEPLOY_SSH_PRIVATE_KEY`: private key for SSH access to `root@178.156.219.85`
+- `GHCR_TOKEN`: token with package read permission if the GHCR package is private
+- `GHCR_USERNAME`: username for the GHCR token
+- `APP_DATABASE_URL`: optional; defaults to the Docker Compose PostgreSQL service URL
 
-# Install systemd service
-sudo cp retriever.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable retriever
-sudo systemctl start retriever
-```
-
-**Updating production:**
-```bash
-# Backend code only - uvicorn auto-restarts
-git pull
-
-# Backend + new migrations - restart triggers migration run
-git pull
-sudo systemctl restart retriever
-
-# Frontend changes
-cd frontend && npm run build
-```
-
-Uvicorn's `--reload` flag auto-restarts on code changes. Migrations run automatically on service start via `ExecStartPre`.
+The deployment host must keep its production `.env` at `/root/retriever.sh/.env`.
 
 ### 5. Polar Webhooks (optional)
 
@@ -163,58 +150,6 @@ X-Project-Key: proj_...
 
 Removes the document from Vespa (keyword + ANN indexes), soft-deletes it in PostgreSQL, and decrements usage counters so customers can free capacity.
 
-### Image Retrieval API (project key required)
-
-Image APIs use the same `X-Project-Key` and project scoping model as text retrieval.
-
-#### Ingest image
-
-```
-POST /api/rag/projects/{project_id}/images
-X-Project-Key: proj_...
-Content-Type: multipart/form-data
-```
-
-Form fields:
-- `image` (required binary file)
-- `metadata` (optional JSON string)
-
-Uploaded binaries are written to R2, while image metadata + IDs are stored in PostgreSQL (`project_images`) and embeddings are indexed in Vespa (`rag_image`).
-
-#### Query images by text
-
-```
-POST /api/rag/projects/{project_id}/images/query/text
-X-Project-Key: proj_...
-{
-  "query": "red running shoes on white background",
-  "top_k": 5,
-  "vector_k": 50
-}
-```
-
-#### Query images by image
-
-```
-POST /api/rag/projects/{project_id}/images/query/image
-X-Project-Key: proj_...
-Content-Type: multipart/form-data
-```
-
-Form fields:
-- `image` (required binary file)
-- `top_k` (optional)
-- `vector_k` (optional)
-
-#### Delete image
-
-```
-DELETE /api/rag/projects/{project_id}/images/{image_id}
-X-Project-Key: proj_...
-```
-
-Deletes both the Vespa vector entry and the underlying R2 object, then decrements usage counters.
-
 ### Billing Endpoints (auth required)
 
 | Method | Endpoint | Notes |
@@ -236,7 +171,7 @@ Plan seeding defines the default caps:
 
 - QPS is enforced with token buckets stored in PostgreSQL (`rate_limit_buckets`).
 - Every plan enforces its vector cap on a per-project basis using the `plans.vector_limit` value.
-- Document vectors and image vectors both count toward the same per-project vector cap.
+- Document vectors count toward the per-project vector cap.
 - Vector/storage caps are defined per plan and scale only when you switch tiers.
 - Limit errors return 402/429 with an upsell message so the frontend can surface upgrade prompts.
 
@@ -260,10 +195,9 @@ The suite verifies token-bucket behaviour and vector-cap checks. Additonal integ
 ## Developer Notes
 
 - Plan records are seeded at startup via `seed_plans`; change defaults there for future migrations.
-- Text documents and image metadata are stored in PostgreSQL; Vespa holds both embedding indexes (`rag_document` and `rag_image`) scoped by `project_id`.
-- Image binaries are stored in Cloudflare R2 and returned as either public URLs or presigned URLs.
+- Text document metadata is stored in PostgreSQL; Vespa holds the `rag_document` embedding index scoped by `project_id`.
 - Polar webhooks rely on Checkout metadata containing `account_id`; ensure the checkout metadata set during session creation matches this expectation.
-- Text embeddings download on-demand using `huggingface_hub` + `llama-cpp-python`. SigLIP2 image/text embeddings are loaded via `transformers`/`torch`.
+- Text embeddings load DenseOn through Sentence Transformers and `torch`.
 
 ## License
 

@@ -24,9 +24,8 @@ dependencies = [
     "httpx",
     "anyio",
     "numpy",
-    "pillow",
     "huggingface-hub",
-    "llama-cpp-python",
+    "sentence-transformers",
     "torch",
     "transformers",
     "polar-sdk",
@@ -36,6 +35,17 @@ dependencies = [
     "pytest>=8.4.2",
     "uuid6>=2025.0.1",
 ]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "platform_system == 'Linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"

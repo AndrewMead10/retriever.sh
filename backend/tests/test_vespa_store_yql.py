@@ -45,7 +45,53 @@ def test_build_yql_without_text_wraps_nearest_neighbor_clause():
     assert "AND ({targetHits:20}nearestNeighbor(embedding, query_embedding))" in yql
 
 
-def test_pack_embedding_bits_uses_signed_big_endian_bit_packing(monkeypatch):
+def test_search_sends_float_query_embedding(monkeypatch):
+    monkeypatch.setattr(settings, "vespa_embedding_dim", 8)
+
+    class _CapturingClient(VespaClient):
+        def __init__(self):
+            super().__init__(
+                endpoint="http://localhost:8080",
+                namespace="rag",
+                document_type="rag_document",
+                rank_profile="rag-hybrid",
+                timeout=5.0,
+            )
+            self.payload = None
+
+        def _execute_search(self, payload):
+            self.payload = payload
+            return []
+
+    client = _CapturingClient()
+    store = VespaVectorStore(project_id="project-1", client=client)
+
+    store.hybrid_search(
+        embedding=[0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8],
+        vector_k=20,
+        top_k=5,
+        weight_vector=0.7,
+        weight_text=0.3,
+        fts_query=None,
+    )
+
+    assert client.payload["input.query(query_embedding)"] == [0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8]
+
+
+def test_vespa_embedding_dim_must_be_positive(monkeypatch):
+    monkeypatch.setattr(settings, "vespa_embedding_dim", 0)
+    client = VespaClient(
+        endpoint="http://localhost:8080",
+        namespace="rag",
+        document_type="rag_document",
+        rank_profile="rag-hybrid",
+        timeout=5.0,
+    )
+    with pytest.raises(ValueError, match="greater than zero"):
+        VespaVectorStore(project_id="project-1", client=client)
+
+
+def test_embedding_dimension_mismatch_raises(monkeypatch):
     monkeypatch.setattr(settings, "vespa_embedding_dim", 8)
     client = VespaClient(
         endpoint="http://localhost:8080",
@@ -56,28 +102,11 @@ def test_pack_embedding_bits_uses_signed_big_endian_bit_packing(monkeypatch):
     )
     store = VespaVectorStore(project_id="project-1", client=client)
 
-    packed = store._pack_embedding_bits([0.5, -0.1, 0.0, 9.2, 3.4, -2.0, 8.1, -7.0])
-
-    # Positive => 1, non-positive => 0, then packed MSB first:
-    # 10011010 (154 unsigned) => -102 signed int8.
-    assert packed == [-102]
+    with pytest.raises(ValueError, match="Expected embedding dimension 8, got 3"):
+        store._normalise_source_embedding([0.1, 0.2, 0.3])
 
 
-def test_vespa_embedding_dim_must_be_divisible_by_eight(monkeypatch):
-    monkeypatch.setattr(settings, "vespa_embedding_dim", 10)
-    client = VespaClient(
-        endpoint="http://localhost:8080",
-        namespace="rag",
-        document_type="rag_document",
-        rank_profile="rag-hybrid",
-        timeout=5.0,
-    )
-
-    with pytest.raises(ValueError, match="divisible by 8"):
-        VespaVectorStore(project_id="project-1", client=client)
-
-
-def test_upsert_sends_source_embedding_field_for_binarize_pipeline(monkeypatch):
+def test_upsert_sends_float_embedding_field(monkeypatch):
     monkeypatch.setattr(settings, "vespa_embedding_dim", 8)
 
     class _CapturingClient:
@@ -105,9 +134,8 @@ def test_upsert_sends_source_embedding_field_for_binarize_pipeline(monkeypatch):
     store.upsert_document(document=doc, embedding=[0.1, 0.2, -0.3, 0.4, 1.0, -2.0, 3.0, -4.0])
 
     assert client.document_id == "doc-42"
-    assert "embedding_float" in client.fields
-    assert client.fields["embedding_float"] == {"values": [0.1, 0.2, -0.3, 0.4, 1.0, -2.0, 3.0, -4.0]}
-    assert "embedding" not in client.fields
+    assert "embedding" in client.fields
+    assert client.fields["embedding"] == {"values": [0.1, 0.2, -0.3, 0.4, 1.0, -2.0, 3.0, -4.0]}
 
 
 def test_execute_search_sorts_rows_by_relevance_descending():

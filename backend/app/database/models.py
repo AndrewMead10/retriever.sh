@@ -150,7 +150,6 @@ class Project(Base, AuditMixin):
     user = relationship("User", back_populates="projects")
     api_keys = relationship("ProjectApiKey", back_populates="project", cascade="all, delete-orphan")
     documents = relationship("ProjectDocument", back_populates="project", cascade="all, delete-orphan")
-    images = relationship("ProjectImage", back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectApiKey(Base, AuditMixin):
@@ -179,17 +178,3 @@ class ProjectDocument(Base, AuditMixin):
     active = Column(Boolean, nullable=False, default=True)
 
     project = relationship("Project", back_populates="documents")
-
-
-class ProjectImage(Base, AuditMixin):
-    __tablename__ = "project_images"
-
-    id = Column(Integer, primary_key=True)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
-    vespa_document_id = Column(String, nullable=False, unique=True)
-    storage_key = Column(String, nullable=False, unique=True)
-    content_type = Column(String, nullable=False)
-    metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
-    active = Column(Boolean, nullable=False, default=True)
-
-    project = relationship("Project", back_populates="images")

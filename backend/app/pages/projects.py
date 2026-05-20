@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..database.models import Project, ProjectDocument, ProjectImage
+from ..database.models import Project, ProjectDocument
 from ..functions.accounts import (
     ensure_project_capacity,
     get_user,
@@ -22,7 +22,6 @@ from ..functions.accounts import (
 )
 from ..functions.api_keys import generate_api_key, hash_api_key
 from ..middleware.auth import get_current_user
-from ..services.image_storage import R2ImageStorageError, get_r2_image_storage
 from ..services.vector_store import vector_store_registry
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -103,7 +102,7 @@ class ProjectListResponse(BaseModel):
 class ProjectCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=512)
-    embedding_provider: Optional[str] = Field(default="llama.cpp")
+    embedding_provider: Optional[str] = Field(default="sentence-transformers")
     embedding_model: Optional[str] = None
     embedding_model_repo: Optional[str] = None
     embedding_model_file: Optional[str] = None
@@ -207,10 +206,10 @@ def create_project(
     name = payload.name.strip()
     slug = _build_unique_slug(db, user.id, _slugify(name))
 
-    embedding_provider = payload.embedding_provider or "llama.cpp"
-    embedding_model = payload.embedding_model or settings.rag_model_filename
-    embedding_model_repo = payload.embedding_model_repo or settings.rag_model_repo
-    embedding_model_file = payload.embedding_model_file or settings.rag_model_filename
+    embedding_provider = payload.embedding_provider or "sentence-transformers"
+    embedding_model = payload.embedding_model or settings.rag_model_id
+    embedding_model_repo = payload.embedding_model_repo or settings.rag_model_id
+    embedding_model_file = payload.embedding_model_file
     embedding_dim = payload.embedding_dim or settings.rag_embed_dim
 
     ingest_key_plain = generate_api_key(prefix="proj")
@@ -330,31 +329,6 @@ def delete_project(
         doc.active = False
         db.add(doc)
 
-    images = (
-        db.query(ProjectImage)
-        .filter(ProjectImage.project_id == project.id, ProjectImage.active == True)
-        .all()
-    )
-    image_store = vector_store_registry.get_image_vector_store(project)
-    logger = logging.getLogger(__name__)
-    object_storage = None
-    try:
-        object_storage = get_r2_image_storage()
-    except R2ImageStorageError:
-        logger.warning("Skipping R2 object cleanup while deleting project %s; R2 storage unavailable", project.id)
-
-    for image in images:
-        try:
-            image_store.delete_image(image)
-        except Exception:
-            logger.exception("Failed to delete Vespa image %s", image.id)
-        if object_storage is not None:
-            try:
-                object_storage.delete_image(storage_key=image.storage_key)
-            except Exception:
-                logger.exception("Failed to delete R2 image object %s", image.storage_key)
-        image.active = False
-        db.add(image)
     db.commit()
 
     return {"detail": "Project deleted successfully"}

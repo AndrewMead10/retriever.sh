@@ -58,6 +58,8 @@ A comprehensive full-stack service template with FastAPI, React, and modern deve
 - Image model cutover to so400m (Feb 21, 2026): defaults now use `google/siglip2-so400m-patch16-naflex` with `RAG_IMAGE_EMBED_DIM=1152` and `VESPA_IMAGE_EMBED_DIM=1152`; `vespa/schemas/rag_image.sd` tensor dimensions were updated to `x[1152]`. Existing image indexes must be rebuilt (re-embed/re-ingest) after deploying the new Vespa schema.
 - Embedding-stage Logfire timing (Feb 21, 2026): text query, image text-query, and image image-query endpoints now use nested `logfire.span(...)` blocks around embed/search/usage/result-mapping stages, and both llama.cpp + SigLIP2 embedding services emit internal spans for prompt/tokenization, model forward pass, normalization, and vector serialization so per-stage durations are visible in Logfire traces.
 - Text embedding module cleanup (Mar 18, 2026): the legacy `backend/app/services/vectorlab/` package was flattened into `backend/app/services/text_embeddings.py`; `vectorlab` was only a carryover name from the predecessor project and is no longer the canonical import path.
+- Text-only retrieval cutover (May 20, 2026): image embedding/search support was removed. SigLIP2 services, R2 image storage, image routes, `project_images`, and Vespa `rag_image` schema are gone. Text embeddings now use `lightonai/DenseOn` through Sentence Transformers with 768-dimensional normalized vectors and Vespa angular nearest-neighbor search, so existing Vespa text indexes need to be rebuilt/reingested after deployment.
+- CI/CD deployment cutover (May 20, 2026): production deploys through `.github/workflows/deploy.yml` to `root@178.156.219.85`. The workflow builds/pushes a GHCR backend image, syncs compose/Vespa files to `/root/retriever.sh`, deploys Vespa, runs Alembic migrations, disables the legacy `retriever.service`, and runs the backend as a Docker Compose service. Production secrets stay in `/root/retriever.sh/.env`.
 
 ---
 
@@ -76,7 +78,7 @@ This template implements a modern full-stack application with:
 - **Backend**: FastAPI with SQLAlchemy, JWT authentication, structured logging, and UV for dependency management 
 - **Frontend**: Vite, using React with TypeScript, TanStack Router/Query, ShadCN, Tailwind CSS
 - **Database**: PostgreSQL (via Docker) + Vespa (via Docker) with Alembic migrations
-- **Deployment**: Native uvicorn with `--reload` for auto-restart, frontend assets built into backend static directory
+- **Deployment**: GitHub Actions builds the backend Docker image with frontend assets, pushes to GHCR, then deploys via Docker Compose on `root@178.156.219.85`
 
 ## Quick Start
 
@@ -92,44 +94,9 @@ The app in development will have a seperate frontend and backend running, but fo
 
 ### Production Deployment
 
-1. **Build frontend into backend static assets**:
-   ```bash
-   cd frontend
-   npm install
-   npm run build
-   ```
+Production deploys through `.github/workflows/deploy.yml` on pushes to `main` or manual `workflow_dispatch`. The workflow builds/pushes a GHCR image, syncs Docker Compose and Vespa files to `/root/retriever.sh`, deploys the Vespa application package, runs `alembic upgrade head`, and starts the backend Docker Compose service.
 
-2. **Run the backend**:
-   ```bash
-   cd backend
-   uv sync
-   uv run alembic upgrade head
-   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 5656
-   ```
-
-3. **Access the application**:
-   - Application: http://localhost:5656
-   - API Docs: http://localhost:5656/docs
-
-### Updating Production Deployment
-
-Because uvicorn runs with `--reload`, backend file changes trigger automatic restart.
-
-**Backend code only:**
-```bash
-git pull  # uvicorn auto-restarts when files change
-```
-
-**Backend + new migrations:**
-```bash
-git pull
-sudo systemctl restart retriever  # migrations run on service start
-```
-
-**Frontend changes:**
-```bash
-cd frontend && npm run build
-```
+Required GitHub secrets: `DEPLOY_SSH_PRIVATE_KEY`; `GHCR_TOKEN`/`GHCR_USERNAME` if the GHCR package is private; optional `APP_DATABASE_URL` if production should not use the compose PostgreSQL service URL.
 
 ## Architecture
 

@@ -7,17 +7,14 @@ from typing import Dict
 
 from ..config import settings
 from ..database.models import Project
-from .siglip2_embeddings import Siglip2Config, Siglip2EmbeddingService
 from .text_embeddings import EmbeddingConfig, EmbeddingService
-from .vespa_image_store import VespaImageStore
 from .vespa_store import VespaClient, VespaVectorStore
 
 
 @dataclass(frozen=True)
 class EmbeddingKey:
     provider: str
-    model_repo: str
-    model_file: str
+    model_id: str
     embed_dim: int
 
 
@@ -26,22 +23,13 @@ class VectorStoreRegistry:
 
     def __init__(self) -> None:
         self._stores: Dict[str, VespaVectorStore] = {}
-        self._image_stores: Dict[str, VespaImageStore] = {}
         self._embed_services: Dict[EmbeddingKey, EmbeddingService] = {}
-        self._image_embedder: Siglip2EmbeddingService | None = None
         self._lock = threading.RLock()
         self._client = VespaClient(
             endpoint=settings.vespa_endpoint,
             namespace=settings.vespa_namespace,
             document_type=settings.vespa_document_type,
             rank_profile=settings.vespa_rank_profile,
-            timeout=settings.vespa_timeout_seconds,
-        )
-        self._image_client = VespaClient(
-            endpoint=settings.vespa_endpoint,
-            namespace=settings.vespa_namespace,
-            document_type=settings.vespa_image_document_type,
-            rank_profile=settings.vespa_image_rank_profile,
             timeout=settings.vespa_timeout_seconds,
         )
 
@@ -55,35 +43,20 @@ class VectorStoreRegistry:
             return store
 
     def _embedding_config(self, project: Project) -> EmbeddingConfig:
-        model_repo = project.embedding_model_repo or settings.rag_model_repo
-        model_file = project.embedding_model_file or settings.rag_model_filename
+        model_id = project.embedding_model_repo or project.embedding_model or settings.rag_model_id
 
         return EmbeddingConfig(
-            model_repo=model_repo,
-            model_filename=model_file,
+            model_id=model_id,
             model_dir=Path(settings.rag_model_dir),
             embed_dim=project.embedding_dim,
             hf_token=settings.rag_hf_token or None,
-            llama_threads=settings.rag_llama_threads,
-            llama_batch_size=settings.rag_llama_batch_size,
-            llama_context=settings.rag_llama_context,
-        )
-
-    def _image_embedding_config(self) -> Siglip2Config:
-        return Siglip2Config(
-            model_id=settings.rag_image_model_id,
-            model_dir=Path(settings.rag_image_model_dir),
-            embed_dim=settings.rag_image_embed_dim,
-            device=settings.rag_image_device,
-            dtype=settings.rag_image_dtype,
-            hf_token=settings.rag_hf_token or None,
+            device=settings.rag_embedding_device,
         )
 
     def get_embedder(self, project: Project) -> EmbeddingService:
         key = EmbeddingKey(
             provider=project.embedding_provider,
-            model_repo=project.embedding_model_repo or settings.rag_model_repo,
-            model_file=project.embedding_model_file or settings.rag_model_filename,
+            model_id=project.embedding_model_repo or project.embedding_model or settings.rag_model_id,
             embed_dim=project.embedding_dim,
         )
         with self._lock:
@@ -93,22 +66,6 @@ class VectorStoreRegistry:
                 embedder = EmbeddingService(config)
                 self._embed_services[key] = embedder
             return embedder
-
-    def get_image_vector_store(self, project: Project) -> VespaImageStore:
-        project_id = str(project.id)
-        with self._lock:
-            store = self._image_stores.get(project_id)
-            if store is None:
-                store = VespaImageStore(project_id=project_id, client=self._image_client)
-                self._image_stores[project_id] = store
-            return store
-
-    def get_image_embedder(self) -> Siglip2EmbeddingService:
-        with self._lock:
-            if self._image_embedder is None:
-                config = self._image_embedding_config()
-                self._image_embedder = Siglip2EmbeddingService(config)
-            return self._image_embedder
 
 
 vector_store_registry = VectorStoreRegistry()

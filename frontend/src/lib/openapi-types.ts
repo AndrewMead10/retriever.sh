@@ -192,6 +192,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/rotate-api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Project Api Key */
+        post: operations["rotate_project_api_key_api_projects_rotate_api_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/delete": {
         parameters: {
             query?: never;
@@ -254,6 +271,23 @@ export interface paths {
         put?: never;
         /** Query Project */
         post: operations["query_project_api_rag_projects__project_id__query_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Checkout */
+        post: operations["create_checkout_api_billing_checkout_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -450,13 +484,10 @@ export interface components {
             text: string;
             /** Title */
             title: string;
-            /** Url */
-            url: string;
-            /**
-             * Published At
-             * @description ISO 8601 timestamp
-             */
-            published_at: string;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** DocumentOut */
         DocumentOut: {
@@ -466,10 +497,10 @@ export interface components {
             content: string;
             /** Title */
             title: string;
-            /** Url */
-            url: string;
-            /** Published At */
-            published_at: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
             /**
              * Created At
              * Format: date-time
@@ -510,8 +541,13 @@ export interface components {
             project_limit?: number | null;
             /** Vector Limit */
             vector_limit?: number | null;
-            /** Per Project Vector Limit */
-            per_project_vector_limit?: number | null;
+        };
+        /** ProjectApiKeyResponse */
+        ProjectApiKeyResponse: {
+            /** Project Id */
+            project_id: string;
+            /** Ingest Api Key */
+            ingest_api_key: string;
         };
         /** ProjectCreateRequest */
         ProjectCreateRequest: {
@@ -521,7 +557,7 @@ export interface components {
             description?: string | null;
             /**
              * Embedding Provider
-             * @default llama.cpp
+             * @default sentence-transformers
              */
             embedding_provider: string | null;
             /** Embedding Model */
@@ -562,7 +598,7 @@ export interface components {
         /** ProjectDeleteRequest */
         ProjectDeleteRequest: {
             /** Project Id */
-            project_id: number;
+            project_id: string;
         };
         /** ProjectListResponse */
         ProjectListResponse: {
@@ -573,10 +609,15 @@ export interface components {
             /** Needs Subscription */
             needs_subscription: boolean;
         };
+        /** ProjectRotateKeyRequest */
+        ProjectRotateKeyRequest: {
+            /** Project Id */
+            project_id: string;
+        };
         /** ProjectSummary */
         ProjectSummary: {
             /** Id */
-            id: number;
+            id: string;
             /** Name */
             name: string;
             /** Description */
@@ -628,10 +669,10 @@ export interface components {
             content: string;
             /** Title */
             title: string;
-            /** Url */
-            url: string;
-            /** Published At */
-            published_at: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
             /**
              * Created At
              * Format: date-time
@@ -1006,6 +1047,39 @@ export interface operations {
             };
         };
     };
+    rotate_project_api_key_api_projects_rotate_api_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectRotateKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectApiKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_project_api_projects_delete_post: {
         parameters: {
             query?: never;
@@ -1046,7 +1120,7 @@ export interface operations {
                 "X-Project-Key"?: string | null;
             };
             path: {
-                project_id: number;
+                project_id: string;
             };
             cookie?: never;
         };
@@ -1083,7 +1157,7 @@ export interface operations {
                 "X-Project-Key"?: string | null;
             };
             path: {
-                project_id: number;
+                project_id: string;
                 document_id: number;
             };
             cookie?: never;
@@ -1115,7 +1189,7 @@ export interface operations {
                 "X-Project-Key"?: string | null;
             };
             path: {
-                project_id: number;
+                project_id: string;
             };
             cookie?: never;
         };
@@ -1132,6 +1206,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_checkout_api_billing_checkout_post: {
+        parameters: {
+            query: {
+                /** @description Plan slug for checkout */
+                plan_slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1170,6 +1276,9 @@ export interface operations {
             query?: never;
             header?: {
                 "Polar-Signature"?: string | null;
+                "Webhook-Signature"?: string | null;
+                "Webhook-Id"?: string | null;
+                "Webhook-Timestamp"?: string | null;
             };
             path?: never;
             cookie?: never;

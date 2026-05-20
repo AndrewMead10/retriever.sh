@@ -310,6 +310,47 @@
         }
       }
     },
+    "/api/projects/rotate-api-key": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Rotate Project Api Key",
+        "operationId": "rotate_project_api_key_api_projects_rotate_api_key_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectRotateKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/delete": {
       "post": {
         "tags": [
@@ -362,8 +403,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
               "title": "Project Id"
             }
           },
@@ -438,8 +478,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
               "title": "Project Id"
             }
           },
@@ -500,8 +539,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
+              "type": "string",
               "title": "Project Id"
             }
           },
@@ -563,6 +601,50 @@
         }
       }
     },
+    "/api/billing/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Create Checkout",
+        "operationId": "create_checkout_api_billing_checkout_post",
+        "parameters": [
+          {
+            "name": "plan_slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Plan slug for checkout",
+              "title": "Plan Slug"
+            },
+            "description": "Plan slug for checkout"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/billing/portal": {
       "post": {
         "tags": [
@@ -606,6 +688,54 @@
                 }
               ],
               "title": "Polar-Signature"
+            }
+          },
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Signature"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Id"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Timestamp"
             }
           }
         ],
@@ -922,24 +1052,23 @@
             "minLength": 1,
             "title": "Title"
           },
-          "url": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Url"
-          },
-          "published_at": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Published At",
-            "description": "ISO 8601 timestamp"
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
           }
         },
         "type": "object",
         "required": [
           "text",
-          "title",
-          "url",
-          "published_at"
+          "title"
         ],
         "title": "DocumentIn"
       },
@@ -957,13 +1086,10 @@
             "type": "string",
             "title": "Title"
           },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "published_at": {
-            "type": "string",
-            "title": "Published At"
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
           },
           "created_at": {
             "type": "string",
@@ -976,8 +1102,7 @@
           "id",
           "content",
           "title",
-          "url",
-          "published_at",
+          "metadata",
           "created_at"
         ],
         "title": "DocumentOut"
@@ -1073,17 +1198,6 @@
               }
             ],
             "title": "Vector Limit"
-          },
-          "per_project_vector_limit": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Per Project Vector Limit"
           }
         },
         "type": "object",
@@ -1095,6 +1209,24 @@
           "ingest_qps_limit"
         ],
         "title": "PlanInfo"
+      },
+      "ProjectApiKeyResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "ingest_api_key": {
+            "type": "string",
+            "title": "Ingest Api Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "ingest_api_key"
+        ],
+        "title": "ProjectApiKeyResponse"
       },
       "ProjectCreateRequest": {
         "properties": {
@@ -1126,7 +1258,7 @@
               }
             ],
             "title": "Embedding Provider",
-            "default": "llama.cpp"
+            "default": "sentence-transformers"
           },
           "embedding_model": {
             "anyOf": [
@@ -1219,7 +1351,7 @@
       "ProjectDeleteRequest": {
         "properties": {
           "project_id": {
-            "type": "integer",
+            "type": "string",
             "title": "Project Id"
           }
         },
@@ -1265,10 +1397,23 @@
         ],
         "title": "ProjectListResponse"
       },
+      "ProjectRotateKeyRequest": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRotateKeyRequest"
+      },
       "ProjectSummary": {
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "title": "Id"
           },
           "name": {
@@ -1446,13 +1591,10 @@
             "type": "string",
             "title": "Title"
           },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "published_at": {
-            "type": "string",
-            "title": "Published At"
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
           },
           "created_at": {
             "type": "string",
@@ -1465,8 +1607,7 @@
           "id",
           "content",
           "title",
-          "url",
-          "published_at",
+          "metadata",
           "created_at"
         ],
         "title": "QueryResult"

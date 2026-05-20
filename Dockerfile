@@ -1,39 +1,13 @@
 ###############################
-# Backend OpenAPI export stage
-###############################
-FROM python:3.11-slim as backend-openapi
-WORKDIR /app
-
-# Install build dependencies for llama-cpp-python
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    make \
-    cmake \
- && rm -rf /var/lib/apt/lists/*
-
-RUN pip install uv
-
-COPY backend/ ./backend
-WORKDIR /app/backend
-
-RUN uv sync
-ENV JWT_SECRET=build-secret \
-    ACCESS_TOKEN_TTL_MINUTES=15 \
-    REFRESH_TOKEN_TTL_DAYS=30
-RUN uv run python -m app.scripts.export_openapi
-
-###############################
 # Frontend build stage
 ###############################
-FROM node:18-alpine as frontend-builder
+FROM node:20-alpine as frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
-# Copy OpenAPI spec generated from backend source and generate TS types
-COPY --from=backend-openapi /app/backend/openapi.json /app/frontend/openapi.json
+# Generate TS types from the backend OpenAPI spec committed by CI/dev workflow.
+COPY backend/openapi.json /app/frontend/openapi.json
 RUN npm run gen:types
 RUN npm run build
 
@@ -43,14 +17,11 @@ RUN npm run build
 FROM python:3.11-slim as backend
 WORKDIR /app
 
-# Install curl for healthchecks and build dependencies for llama-cpp-python
+# Install curl for healthchecks and libgomp for scientific Python wheels.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     curl \
-    gcc \
-    g++ \
-    make \
-    cmake \
+    libgomp1 \
  && rm -rf /var/lib/apt/lists/*
 
 # Install UV for faster dependency management
@@ -60,10 +31,10 @@ RUN pip install uv
 COPY backend/ ./backend
 WORKDIR /app/backend
 
-RUN uv sync
+RUN uv sync --locked
 
 # Copy built frontend files into FastAPI static dir
-COPY --from=frontend-builder /app/frontend/dist /app/backend/app/static
+COPY --from=frontend-builder /app/backend/app/static /app/backend/app/static
 
 # Create data directory
 RUN mkdir -p /app/data
