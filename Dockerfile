@@ -17,11 +17,10 @@ RUN npm run build
 FROM python:3.11-slim as backend
 WORKDIR /app
 
-# Install curl for healthchecks and libgomp for scientific Python wheels.
+# Install curl for healthchecks.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     curl \
-    libgomp1 \
  && rm -rf /var/lib/apt/lists/*
 
 # Install UV for faster dependency management

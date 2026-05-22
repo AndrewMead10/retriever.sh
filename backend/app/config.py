@@ -52,12 +52,21 @@ class Settings(BaseSettings):
         default_factory=list, env="GOOGLE_ALLOWED_DOMAINS"
     )
 
-    # RAG / Vector settings
-    rag_model_id: str = Field("lightonai/DenseOn", env="RAG_MODEL_ID")
-    rag_model_dir: str = Field("models/sentence-transformers", env="RAG_MODEL_DIR")
-    rag_embed_dim: int = Field(768, env="RAG_EMBED_DIM")
-    rag_hf_token: str = Field("", env="RAG_HF_TOKEN")
-    rag_embedding_device: str = Field("cpu", env="RAG_EMBEDDING_DEVICE")
+    # RAG / Embedding settings
+    rag_embedding_base_url: str = Field(
+        "https://embedding-server.amqm.dev",
+        env="RAG_EMBEDDING_BASE_URL",
+    )
+    rag_embedding_api_key: str = Field(
+        "",
+        env="RAG_EMBEDDING_API_KEY",
+    )
+    rag_embedding_model: str = Field(
+        "jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
+        env="RAG_EMBEDDING_MODEL",
+    )
+    rag_embed_dim: int = Field(512, env="RAG_EMBED_DIM")
+    rag_embedding_timeout_seconds: float = Field(30.0, env="RAG_EMBEDDING_TIMEOUT_SECONDS")
 
     # Vespa
     vespa_endpoint: str = Field("http://localhost:8080", env="VESPA_ENDPOINT")
@@ -65,7 +74,7 @@ class Settings(BaseSettings):
     vespa_document_type: str = Field("rag_document", env="VESPA_DOCUMENT_TYPE")
     vespa_rank_profile: str = Field("rag-hybrid", env="VESPA_RANK_PROFILE")
     vespa_timeout_seconds: float = Field(10.0, env="VESPA_TIMEOUT_SECONDS")
-    vespa_embedding_dim: int = Field(768, env="VESPA_EMBED_DIM")
+    vespa_embedding_dim: int = Field(512, env="VESPA_EMBED_DIM")
 
     # Polar
     polar_access_token: str = Field("", env="POLAR_ACCESS_TOKEN")

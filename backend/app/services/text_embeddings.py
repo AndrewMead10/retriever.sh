@@ -1,12 +1,11 @@
+from __future__ import annotations
+
 import logging
-import threading
 from contextlib import nullcontext
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
+import httpx
 
 from ..config import settings
 
@@ -18,94 +17,111 @@ else:
 logger = logging.getLogger(__name__)
 
 
+class EmbeddingProviderError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class EmbeddingConfig:
+    endpoint: str
+    api_key: str
     model_id: str
-    model_dir: Path
     embed_dim: int
-    hf_token: str | None = None
-    device: str = "cpu"
-
-
-@dataclass(frozen=True)
-class EmbeddingPrompts:
-    """Prompt names configured by the DenseOn Sentence Transformers model."""
-
-    document: str = "document"
-    query: str = "query"
+    timeout: float
 
 
 class EmbeddingService:
-    """Wrapper around Sentence Transformers embeddings for synchronous usage."""
+    """Synchronous client for the remote OpenAI-compatible embedding service."""
 
-    def __init__(self, config: EmbeddingConfig, prompts: EmbeddingPrompts | None = None) -> None:
+    def __init__(self, config: EmbeddingConfig, client: httpx.Client | None = None) -> None:
         self._config = config
-        self._prompts = prompts or EmbeddingPrompts()
-        self._model = self._load_model(config)
-        self._lock = threading.RLock()
+        self._base_url = config.endpoint.rstrip("/")
+        self._client = client or httpx.Client(timeout=config.timeout)
 
     def embed_document(self, *, title: str, text: str) -> Sequence[float]:
         with _logfire_span(
-            "Build document embedding prompt",
+            "Build document embedding input",
             title_length=len(title),
             text_length=len(text),
         ):
             document = f"{title.strip()}\n\n{text}" if title.strip() else text
-        return self._embed(document, prompt_name=self._prompts.document)
+        return self._embed(document, task_type="retrieval.passage")
 
     def embed_query(self, *, query: str) -> Sequence[float]:
         with _logfire_span(
-            "Build text query embedding prompt",
+            "Build text query embedding input",
             query_length=len(query),
         ):
             stripped_query = query.strip()
-        return self._embed(stripped_query, prompt_name=self._prompts.query)
+        return self._embed(stripped_query, task_type="retrieval.query")
 
-    def _embed(self, text: str, *, prompt_name: str) -> Sequence[float]:
+    def _embed(self, text: str, *, task_type: str) -> Sequence[float]:
+        if not self._config.api_key:
+            raise EmbeddingProviderError("RAG_EMBEDDING_API_KEY is not configured")
+
         with _logfire_span(
-            "Sentence Transformers embedding pipeline",
+            "Remote embedding request",
             text_length=len(text),
             target_dim=self._config.embed_dim,
             model_id=self._config.model_id,
+            task_type=task_type,
         ):
-            with _logfire_span("Run Sentence Transformers encode inference"):
-                with self._lock:
-                    vector = self._model.encode(
-                        [text],
-                        prompt_name=prompt_name,
-                        normalize_embeddings=True,
-                        convert_to_numpy=True,
-                    )
-            with _logfire_span("Convert raw embedding to float32 array"):
-                array = np.asarray(vector, dtype=np.float32)
-                if array.ndim == 2:
-                    array = array[0]
-            with _logfire_span(
-                "Validate embedding dimensions",
-                source_dim=int(array.shape[0]),
-                target_dim=self._config.embed_dim,
-            ):
-                if array.ndim != 1:
-                    raise ValueError(f"Expected 1D embedding vector, got shape {tuple(array.shape)}")
-                if array.shape[0] != self._config.embed_dim:
-                    raise ValueError(
-                        f"Unexpected embedding dimension: expected {self._config.embed_dim}, got {array.shape[0]}"
-                    )
-                return array
+            payload = {
+                "input": text,
+                "model": self._config.model_id,
+                "encoding_format": "float",
+                "dimensions": self._config.embed_dim,
+                "task_type": task_type,
+            }
+            try:
+                response = self._client.post(
+                    f"{self._base_url}/v1/embeddings",
+                    headers={"Authorization": f"Bearer {self._config.api_key}"},
+                    json=payload,
+                )
+            except httpx.HTTPError as exc:
+                raise EmbeddingProviderError(f"Remote embedding request failed: {exc}") from exc
 
-    def _load_model(self, config: EmbeddingConfig) -> SentenceTransformer:
-        config.model_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Loading Sentence Transformers model %s", config.model_id)
-        kwargs = {
-            "cache_folder": str(config.model_dir),
-            "device": config.device,
-        }
-        if config.hf_token:
-            kwargs["token"] = config.hf_token
-        return SentenceTransformer(
-            config.model_id,
-            **kwargs,
-        )
+            if response.status_code >= 400:
+                detail = _truncate_detail(response.text)
+                logger.error("Remote embedding request failed: %s", detail)
+                suffix = f" - {detail}" if detail else ""
+                raise EmbeddingProviderError(
+                    f"Remote embedding request failed: {response.status_code}{suffix}"
+                )
+
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise EmbeddingProviderError("Remote embedding response was not valid JSON") from exc
+
+        return self._extract_embedding(data)
+
+    def _extract_embedding(self, data: Any) -> Sequence[float]:
+        try:
+            embedding = data["data"][0]["embedding"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise EmbeddingProviderError("Remote embedding response did not include an embedding") from exc
+
+        if not isinstance(embedding, list):
+            raise EmbeddingProviderError("Remote embedding response embedding was not a list")
+
+        try:
+            values = [float(value) for value in embedding]
+        except (TypeError, ValueError) as exc:
+            raise EmbeddingProviderError("Remote embedding response contained non-numeric values") from exc
+
+        if len(values) != self._config.embed_dim:
+            raise ValueError(
+                f"Unexpected embedding dimension: expected {self._config.embed_dim}, got {len(values)}"
+            )
+
+        return values
+
+
+def _truncate_detail(detail: str) -> str:
+    stripped = (detail or "").strip()
+    return f"{stripped[:300]}..." if len(stripped) > 300 else stripped
 
 
 def _logfire_span(message_template: str, **attributes: int | str):

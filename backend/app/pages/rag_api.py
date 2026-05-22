@@ -29,6 +29,7 @@ from ..schemas.rag import (
     QueryResult,
 )
 from ..services.search import normalise_fts_query
+from ..services.text_embeddings import EmbeddingProviderError
 from ..services.vector_store import vector_store_registry
 
 router = APIRouter(prefix="/rag", tags=["rag"])
@@ -150,9 +151,13 @@ async def ingest_document(
     document.vespa_document_id = f"{project.vector_store_path}_{document.id}"
     db.add(document)
 
-    embedding = await anyio.to_thread.run_sync(
-        lambda: embedder.embed_document(title=payload.title, text=payload.text)
-    )
+    try:
+        embedding = await anyio.to_thread.run_sync(
+            lambda: embedder.embed_document(title=payload.title, text=payload.text)
+        )
+    except EmbeddingProviderError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
     await anyio.to_thread.run_sync(
         lambda: vector_store.upsert_document(document=document, embedding=embedding)
     )
@@ -261,7 +266,10 @@ async def query_project(
         vector_k=vector_k,
     ):
         with _logfire_span("Generate text query embedding", project_id=project_id):
-            embedding = await anyio.to_thread.run_sync(lambda: embedder.embed_query(query=payload.query))
+            try:
+                embedding = await anyio.to_thread.run_sync(lambda: embedder.embed_query(query=payload.query))
+            except EmbeddingProviderError as exc:
+                raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
         with _logfire_span("Normalise full-text search query", project_id=project_id):
             fts_query = normalise_fts_query(payload.query)

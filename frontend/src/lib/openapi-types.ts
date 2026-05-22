@@ -557,7 +557,7 @@ export interface components {
             description?: string | null;
             /**
              * Embedding Provider
-             * @default sentence-transformers
+             * @default remote-http
              */
             embedding_provider: string | null;
             /** Embedding Model */

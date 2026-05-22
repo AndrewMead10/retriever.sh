@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict
 
 from ..config import settings
@@ -14,6 +13,7 @@ from .vespa_store import VespaClient, VespaVectorStore
 @dataclass(frozen=True)
 class EmbeddingKey:
     provider: str
+    endpoint: str
     model_id: str
     embed_dim: int
 
@@ -43,20 +43,21 @@ class VectorStoreRegistry:
             return store
 
     def _embedding_config(self, project: Project) -> EmbeddingConfig:
-        model_id = project.embedding_model_repo or project.embedding_model or settings.rag_model_id
+        model_id = project.embedding_model or settings.rag_embedding_model
 
         return EmbeddingConfig(
+            endpoint=settings.rag_embedding_base_url,
+            api_key=settings.rag_embedding_api_key,
             model_id=model_id,
-            model_dir=Path(settings.rag_model_dir),
             embed_dim=project.embedding_dim,
-            hf_token=settings.rag_hf_token or None,
-            device=settings.rag_embedding_device,
+            timeout=settings.rag_embedding_timeout_seconds,
         )
 
     def get_embedder(self, project: Project) -> EmbeddingService:
         key = EmbeddingKey(
             provider=project.embedding_provider,
-            model_id=project.embedding_model_repo or project.embedding_model or settings.rag_model_id,
+            endpoint=settings.rag_embedding_base_url,
+            model_id=project.embedding_model or settings.rag_embedding_model,
             embed_dim=project.embedding_dim,
         )
         with self._lock:

@@ -102,7 +102,7 @@ class ProjectListResponse(BaseModel):
 class ProjectCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=512)
-    embedding_provider: Optional[str] = Field(default="sentence-transformers")
+    embedding_provider: Optional[str] = Field(default="remote-http")
     embedding_model: Optional[str] = None
     embedding_model_repo: Optional[str] = None
     embedding_model_file: Optional[str] = None
@@ -206,9 +206,9 @@ def create_project(
     name = payload.name.strip()
     slug = _build_unique_slug(db, user.id, _slugify(name))
 
-    embedding_provider = payload.embedding_provider or "sentence-transformers"
-    embedding_model = payload.embedding_model or settings.rag_model_id
-    embedding_model_repo = payload.embedding_model_repo or settings.rag_model_id
+    embedding_provider = payload.embedding_provider or "remote-http"
+    embedding_model = payload.embedding_model or settings.rag_embedding_model
+    embedding_model_repo = payload.embedding_model_repo
     embedding_model_file = payload.embedding_model_file
     embedding_dim = payload.embedding_dim or settings.rag_embed_dim
 

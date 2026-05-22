@@ -44,10 +44,10 @@ from app.main import app
 
 class _StubEmbedder:
     def embed_document(self, *, title: str, text: str):
-        return [0.1] * 768
+        return [0.1] * 512
 
     def embed_query(self, *, query: str):
-        return [0.2] * 768
+        return [0.2] * 512
 
 
 class _StubVectorStore:
@@ -227,11 +227,11 @@ def seeded_project(session: Session):
         name="Test RAG Project",
         description="Test project for Vespa RAG",
         slug="test-rag-project",
-        embedding_provider="sentence-transformers",
-        embedding_model="lightonai/DenseOn",
-        embedding_model_repo="lightonai/DenseOn",
+        embedding_provider="remote-http",
+        embedding_model="jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
+        embedding_model_repo=None,
         embedding_model_file=None,
-        embedding_dim=768,
+        embedding_dim=512,
         hybrid_weight_vector=0.7,
         hybrid_weight_text=0.3,
         top_k_default=5,
