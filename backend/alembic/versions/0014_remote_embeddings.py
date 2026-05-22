@@ -4,7 +4,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0014_remote_embedding_server_cutover"
+revision = "0014_remote_embeddings"
 down_revision = "0013_text_only_denseon_cutover"
 branch_labels = None
 depends_on = None
