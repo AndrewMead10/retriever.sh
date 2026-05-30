@@ -1,16 +1,16 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Service Template",
-    "description": "A comprehensive service template with authentication",
+    "title": "Retriever.sh",
+    "description": "Cheap, easy to use hybrid search engine",
     "version": "1.0.0"
   },
   "paths": {
-    "/auth/login/onsubmit": {
+    "/api/auth/login/onsubmit": {
       "post": {
         "summary": "Login Onsubmit",
         "description": "Handle user login",
-        "operationId": "login_onsubmit_auth_login_onsubmit_post",
+        "operationId": "login_onsubmit_api_auth_login_onsubmit_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -45,11 +45,11 @@
         }
       }
     },
-    "/auth/register/onsubmit": {
+    "/api/auth/register/onsubmit": {
       "post": {
         "summary": "Register Onsubmit",
-        "description": "Handle user registration",
-        "operationId": "register_onsubmit_auth_register_onsubmit_post",
+        "description": "Handle user registration with email verification",
+        "operationId": "register_onsubmit_api_auth_register_onsubmit_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -84,45 +84,11 @@
         }
       }
     },
-    "/auth/refresh": {
-      "post": {
-        "summary": "Refresh Token",
-        "description": "Refresh access token using refresh token from cookie",
-        "operationId": "refresh_token_auth_refresh_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/logout/onsubmit": {
-      "post": {
-        "summary": "Logout",
-        "description": "Logout user by clearing cookies",
-        "operationId": "logout_auth_logout_onsubmit_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/me": {
+    "/api/auth/me": {
       "get": {
         "summary": "Get Current User Info",
         "description": "Get current user information",
-        "operationId": "get_current_user_info_auth_me_get",
+        "operationId": "get_current_user_info_api_auth_me_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -137,10 +103,44 @@
         }
       }
     },
-    "/auth/reset/request": {
+    "/api/auth/refresh": {
+      "post": {
+        "summary": "Refresh Token",
+        "description": "Refresh access token using refresh token from cookie",
+        "operationId": "refresh_token_api_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout/onsubmit": {
+      "post": {
+        "summary": "Logout",
+        "description": "Logout user by clearing cookies",
+        "operationId": "logout_api_auth_logout_onsubmit_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/reset/onsubmit/request": {
       "post": {
         "summary": "Request Password Reset",
-        "operationId": "request_password_reset_auth_reset_request_post",
+        "operationId": "request_password_reset_api_auth_reset_onsubmit_request_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -173,10 +173,10 @@
         }
       }
     },
-    "/auth/reset/confirm": {
+    "/api/auth/reset/onsubmit/confirm": {
       "post": {
         "summary": "Confirm Password Reset",
-        "operationId": "confirm_password_reset_auth_reset_confirm_post",
+        "operationId": "confirm_password_reset_api_auth_reset_onsubmit_confirm_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -209,18 +209,38 @@
         }
       }
     },
-    "/dashboard/onload": {
-      "get": {
-        "summary": "Dashboard Onload",
-        "description": "Gather all data needed for dashboard display.\nSingle endpoint to minimize frontend API calls.",
-        "operationId": "dashboard_onload_dashboard_onload_get",
+    "/api/auth/verify-email/onsubmit": {
+      "post": {
+        "summary": "Verify Email",
+        "description": "Handle email verification when user clicks the link",
+        "operationId": "verify_email_api_auth_verify_email_onsubmit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardData"
+                  "$ref": "#/components/schemas/VerifyEmailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -228,18 +248,121 @@
         }
       }
     },
-    "/dashboard/onsubmit": {
+    "/api/projects/onload": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Projects Onload",
+        "operationId": "projects_onload_api_projects_onload_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/onsubmit": {
       "post": {
-        "summary": "Dashboard Onsubmit",
-        "description": "Handle dashboard actions (e.g., updating preferences)",
-        "operationId": "dashboard_onsubmit_dashboard_onsubmit_post",
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project",
+        "operationId": "create_project_api_projects_onsubmit_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Action Data"
+                "$ref": "#/components/schemas/ProjectCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/rotate-api-key": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Rotate Project Api Key",
+        "operationId": "rotate_project_api_key_api_projects_rotate_api_key_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectRotateKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/delete": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete Project",
+        "operationId": "delete_project_api_projects_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectDeleteRequest"
               }
             }
           },
@@ -251,6 +374,559 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/items": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Ingest Item",
+        "operationId": "ingest_item_api_rag_projects__project_id__items_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ItemIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/items/{item_id}": {
+      "delete": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Delete Item",
+        "operationId": "delete_item_api_rag_projects__project_id__items__item_id__delete",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Item Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/query": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Query Project",
+        "operationId": "query_project_api_rag_projects__project_id__query_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Project-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Project-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/QueryRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Create Checkout",
+        "operationId": "create_checkout_api_billing_checkout_post",
+        "parameters": [
+          {
+            "name": "plan_slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Plan slug for checkout",
+              "title": "Plan Slug"
+            },
+            "description": "Plan slug for checkout"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/portal": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Open Billing Portal",
+        "operationId": "open_billing_portal_api_billing_portal_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/webhook": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Polar Webhook",
+        "operationId": "polar_webhook_api_billing_webhook_post",
+        "parameters": [
+          {
+            "name": "Polar-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Polar-Signature"
+            }
+          },
+          {
+            "name": "Webhook-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Signature"
+            }
+          },
+          {
+            "name": "Webhook-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Id"
+            }
+          },
+          {
+            "name": "Webhook-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webhook-Timestamp"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google/login": {
+      "get": {
+        "summary": "Google Login",
+        "description": "Initiate Google OAuth flow",
+        "operationId": "google_login_api_auth_google_login_get",
+        "parameters": [
+          {
+            "name": "redirect",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Redirect"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google/callback": {
+      "get": {
+        "summary": "Google Callback",
+        "description": "Handle Google OAuth callback",
+        "operationId": "google_callback_api_auth_google_callback_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connect/onload": {
+      "get": {
+        "summary": "Connect Onload",
+        "description": "Load connect page data",
+        "operationId": "connect_onload_api_connect_onload_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Connect Onload Api Connect Onload Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connect/submit": {
+      "post": {
+        "summary": "Submit Contact Form",
+        "description": "Handle contact form submission",
+        "operationId": "submit_contact_form_api_connect_submit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactResponse"
+                }
               }
             }
           },
@@ -304,25 +980,163 @@
   },
   "components": {
     "schemas": {
-      "DashboardData": {
+      "AudioBase64ContentBlock": {
         "properties": {
-          "user_stats": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "User Stats"
+          "type": {
+            "type": "string",
+            "const": "audio_base64",
+            "title": "Type"
           },
-          "system_metrics": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "System Metrics"
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
           }
         },
         "type": "object",
         "required": [
-          "user_stats",
-          "system_metrics"
+          "type",
+          "data",
+          "media_type"
         ],
-        "title": "DashboardData"
+        "title": "AudioBase64ContentBlock"
+      },
+      "AudioUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "audio_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "AudioUrlContentBlock"
+      },
+      "CheckoutResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "CheckoutResponse"
+      },
+      "ContactForm": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "subject",
+          "message"
+        ],
+        "title": "ContactForm"
+      },
+      "ContactResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ContactResponse"
+      },
+      "FileBase64ContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "file_base64",
+            "title": "Type"
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "const": "application/pdf",
+            "title": "Media Type",
+            "default": "application/pdf"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data"
+        ],
+        "title": "FileBase64ContentBlock"
+      },
+      "FileUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "file_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          },
+          "media_type": {
+            "type": "string",
+            "const": "application/pdf",
+            "title": "Media Type",
+            "default": "application/pdf"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "FileUrlContentBlock"
       },
       "HTTPValidationError": {
         "properties": {
@@ -336,6 +1150,232 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImageBase64ContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "image_base64",
+            "title": "Type"
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data",
+          "media_type"
+        ],
+        "title": "ImageBase64ContentBlock"
+      },
+      "ImageUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "image_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "ImageUrlContentBlock"
+      },
+      "ItemIn": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Content"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "ItemIn"
+      },
+      "ItemOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Content"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "content",
+          "metadata",
+          "created_at"
+        ],
+        "title": "ItemOut"
       },
       "LoginRequest": {
         "properties": {
@@ -362,9 +1402,7 @@
             "title": "Success"
           },
           "user": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "User"
+            "$ref": "#/components/schemas/UserResponse"
           }
         },
         "type": "object",
@@ -373,6 +1411,575 @@
           "user"
         ],
         "title": "LoginResponse"
+      },
+      "PlanInfo": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          },
+          "query_qps_limit": {
+            "type": "integer",
+            "title": "Query Qps Limit"
+          },
+          "ingest_qps_limit": {
+            "type": "integer",
+            "title": "Ingest Qps Limit"
+          },
+          "project_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Limit"
+          },
+          "vector_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "price_cents",
+          "query_qps_limit",
+          "ingest_qps_limit"
+        ],
+        "title": "PlanInfo"
+      },
+      "ProjectApiKeyResponse": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "ingest_api_key": {
+            "type": "string",
+            "title": "Ingest Api Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id",
+          "ingest_api_key"
+        ],
+        "title": "ProjectApiKeyResponse"
+      },
+      "ProjectCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "embedding_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Provider",
+            "default": "remote-http"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "embedding_model_repo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model Repo"
+          },
+          "embedding_model_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model File"
+          },
+          "embedding_dim": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Dim"
+          },
+          "hybrid_weight_vector": {
+            "type": "number",
+            "title": "Hybrid Weight Vector",
+            "default": 0.5
+          },
+          "hybrid_weight_text": {
+            "type": "number",
+            "title": "Hybrid Weight Text",
+            "default": 0.5
+          },
+          "top_k_default": {
+            "type": "integer",
+            "title": "Top K Default",
+            "default": 5
+          },
+          "vector_search_k": {
+            "type": "integer",
+            "title": "Vector Search K",
+            "default": 20
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProjectCreateRequest"
+      },
+      "ProjectCreateResponse": {
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/ProjectSummary"
+          },
+          "ingest_api_key": {
+            "type": "string",
+            "title": "Ingest Api Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project",
+          "ingest_api_key"
+        ],
+        "title": "ProjectCreateResponse"
+      },
+      "ProjectDeleteRequest": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectDeleteRequest"
+      },
+      "ProjectListResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSummary"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageInfo"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "needs_subscription": {
+            "type": "boolean",
+            "title": "Needs Subscription"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects",
+          "usage",
+          "plan",
+          "needs_subscription"
+        ],
+        "title": "ProjectListResponse"
+      },
+      "ProjectRotateKeyRequest": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRotateKeyRequest"
+      },
+      "ProjectSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "embedding_provider": {
+            "type": "string",
+            "title": "Embedding Provider"
+          },
+          "embedding_model": {
+            "type": "string",
+            "title": "Embedding Model"
+          },
+          "embedding_model_repo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model Repo"
+          },
+          "embedding_model_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model File"
+          },
+          "embedding_dim": {
+            "type": "integer",
+            "title": "Embedding Dim"
+          },
+          "hybrid_weight_vector": {
+            "type": "number",
+            "title": "Hybrid Weight Vector"
+          },
+          "hybrid_weight_text": {
+            "type": "number",
+            "title": "Hybrid Weight Text"
+          },
+          "top_k_default": {
+            "type": "integer",
+            "title": "Top K Default"
+          },
+          "vector_search_k": {
+            "type": "integer",
+            "title": "Vector Search K"
+          },
+          "vector_count": {
+            "type": "integer",
+            "title": "Vector Count"
+          },
+          "vector_store_path": {
+            "type": "string",
+            "title": "Vector Store Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "slug",
+          "embedding_provider",
+          "embedding_model",
+          "embedding_model_repo",
+          "embedding_model_file",
+          "embedding_dim",
+          "hybrid_weight_vector",
+          "hybrid_weight_text",
+          "top_k_default",
+          "vector_search_k",
+          "vector_count",
+          "vector_store_path"
+        ],
+        "title": "ProjectSummary"
+      },
+      "QueryRequest": {
+        "properties": {
+          "input": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Input"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 50.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "vector_k": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 200.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector K"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "QueryRequest"
+      },
+      "QueryResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/QueryResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "title": "QueryResponse"
+      },
+      "QueryResult": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Content"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "content",
+          "metadata",
+          "created_at"
+        ],
+        "title": "QueryResult"
       },
       "RegisterRequest": {
         "properties": {
@@ -443,6 +2050,78 @@
         ],
         "title": "ResetRequest"
       },
+      "TextContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "text",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "text"
+        ],
+        "title": "TextContentBlock"
+      },
+      "UsageInfo": {
+        "properties": {
+          "total_queries": {
+            "type": "integer",
+            "title": "Total Queries"
+          },
+          "total_ingest_requests": {
+            "type": "integer",
+            "title": "Total Ingest Requests"
+          },
+          "total_vectors": {
+            "type": "integer",
+            "title": "Total Vectors"
+          },
+          "project_count": {
+            "type": "integer",
+            "title": "Project Count"
+          },
+          "project_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Limit"
+          },
+          "vector_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_queries",
+          "total_ingest_requests",
+          "total_vectors",
+          "project_count",
+          "project_limit",
+          "vector_limit"
+        ],
+        "title": "UsageInfo"
+      },
       "UserResponse": {
         "properties": {
           "id": {
@@ -463,6 +2142,17 @@
             },
             "type": "array",
             "title": "Roles"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
           }
         },
         "type": "object",
@@ -506,6 +2196,83 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerifyEmailRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "VerifyEmailRequest"
+      },
+      "VerifyEmailResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "VerifyEmailResponse"
+      },
+      "VideoBase64ContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "video_base64",
+            "title": "Type"
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data",
+          "media_type"
+        ],
+        "title": "VideoBase64ContentBlock"
+      },
+      "VideoUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "video_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "VideoUrlContentBlock"
       }
     }
   }

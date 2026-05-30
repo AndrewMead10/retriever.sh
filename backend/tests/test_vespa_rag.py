@@ -43,10 +43,10 @@ from app.main import app
 
 
 class _StubEmbedder:
-    def embed_document(self, *, title: str, text: str):
+    def embed_item(self, *, title: str, content):
         return [0.1] * 512
 
-    def embed_query(self, *, query: str):
+    def embed_query(self, *, content):
         return [0.2] * 512
 
 
@@ -59,7 +59,7 @@ class _StubVectorStore:
             "document_id": document.id,
             "title": document.title,
             "content": document.content,
-            "metadata": "{}",
+            "metadata": document.metadata_,
             "created_at": document.created_at,
             "active": document.active,
             "_vespa_relevance": 1.0,
@@ -228,7 +228,7 @@ def seeded_project(session: Session):
         description="Test project for Vespa RAG",
         slug="test-rag-project",
         embedding_provider="remote-http",
-        embedding_model="jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
+        embedding_model="jinaai/jina-embeddings-v5-omni-small-retrieval",
         embedding_model_repo=None,
         embedding_model_file=None,
         embedding_dim=512,
@@ -269,17 +269,32 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     test_documents = [
         {
             "title": "Introduction to Machine Learning",
-            "text": "Machine learning is a subset of artificial intelligence that focuses on building systems that learn from data. It enables computers to improve their performance on tasks without being explicitly programmed.",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Machine learning is a subset of artificial intelligence that focuses on building systems that learn from data. It enables computers to improve their performance on tasks without being explicitly programmed.",
+                }
+            ],
             "metadata": {"source": "https://example.com/ml-intro"},
         },
         {
             "title": "Deep Learning Fundamentals",
-            "text": "Deep learning uses neural networks with multiple layers to progressively extract higher-level features from raw input. It has revolutionized computer vision and natural language processing.",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Deep learning uses neural networks with multiple layers to progressively extract higher-level features from raw input. It has revolutionized computer vision and natural language processing.",
+                }
+            ],
             "metadata": {"source": "https://example.com/deep-learning"},
         },
         {
             "title": "Natural Language Processing Basics",
-            "text": "Natural language processing (NLP) is a branch of artificial intelligence that helps computers understand, interpret and manipulate human language. NLP draws from many disciplines, including computer science and computational linguistics.",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Natural language processing (NLP) is a branch of artificial intelligence that helps computers understand, interpret and manipulate human language. NLP draws from many disciplines, including computer science and computational linguistics.",
+                }
+            ],
             "metadata": {"source": "https://example.com/nlp-basics"},
         },
     ]
@@ -290,7 +305,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     print("\n--- Step 1: Uploading documents ---")
     for doc in test_documents:
         response = test_client.post(
-            f"/api/rag/projects/{project.id}/documents",
+            f"/api/rag/projects/{project.id}/items",
             json=doc,
             headers={"X-Project-Key": api_key},
         )
@@ -301,8 +316,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
 
         assert result["title"] == doc["title"]
         # The response can have either 'text' or 'content' due to aliasing
-        response_text = result.get("text") or result.get("content")
-        assert response_text == doc["text"]
+        assert result["content"] == doc["content"]
         assert result["metadata"] == doc["metadata"]
         assert "id" in result
         assert "created_at" in result
@@ -316,7 +330,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
 
     # Search for "machine learning"
     search_query = {
-        "query": "machine learning artificial intelligence",
+        "input": [{"type": "text", "text": "machine learning artificial intelligence"}],
         "top_k": 5,
     }
 
@@ -337,13 +351,14 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     for idx, result in enumerate(search_results["results"], 1):
         assert "id" in result
         assert "title" in result
-        assert "text" in result or "content" in result
+        assert "content" in result
         assert "metadata" in result
+        assert "score" in result
         print(f"  {idx}. {result['title']}")
 
     # Search for "deep learning"
     search_query2 = {
-        "query": "neural networks deep learning",
+        "input": [{"type": "text", "text": "neural networks deep learning"}],
         "top_k": 3,
     }
 
@@ -361,7 +376,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     print("\n--- Step 3: Deleting documents ---")
     for doc_id in uploaded_doc_ids:
         response = test_client.delete(
-            f"/api/rag/projects/{project.id}/vectors/{doc_id}",
+            f"/api/rag/projects/{project.id}/items/{doc_id}",
             headers={"X-Project-Key": api_key},
         )
         assert response.status_code == 204, f"Failed to delete document {doc_id}: {response.text}"
@@ -371,7 +386,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     print("\n--- Step 4: Verifying deletion ---")
     response = test_client.post(
         f"/api/rag/projects/{project.id}/query",
-        json={"query": "machine learning", "top_k": 10},
+        json={"input": [{"type": "text", "text": "machine learning"}], "top_k": 10},
         headers={"X-Project-Key": api_key},
     )
     assert response.status_code == 200
@@ -389,12 +404,10 @@ def test_invalid_api_key(test_client: TestClient, seeded_project):
     project = seeded_project["project"]
 
     response = test_client.post(
-        f"/api/rag/projects/{project.id}/documents",
+        f"/api/rag/projects/{project.id}/items",
         json={
             "title": "Test",
-            "text": "Test content",
-            "url": "https://example.com",
-            "published_at": "2024-01-01T00:00:00Z",
+            "content": [{"type": "text", "text": "Test content"}],
         },
         headers={"X-Project-Key": "invalid_key"},
     )
@@ -408,12 +421,10 @@ def test_missing_api_key(test_client: TestClient, seeded_project):
     project = seeded_project["project"]
 
     response = test_client.post(
-        f"/api/rag/projects/{project.id}/documents",
+        f"/api/rag/projects/{project.id}/items",
         json={
             "title": "Test",
-            "text": "Test content",
-            "url": "https://example.com",
-            "published_at": "2024-01-01T00:00:00Z",
+            "content": [{"type": "text", "text": "Test content"}],
         },
     )
 
@@ -425,7 +436,7 @@ def test_nonexistent_project(test_client: TestClient):
     """Test that queries to non-existent projects return 404."""
     response = test_client.post(
         "/api/rag/projects/99999/query",
-        json={"query": "test"},
+        json={"input": [{"type": "text", "text": "test"}]},
         headers={"X-Project-Key": "test_fake_key"},
     )
 

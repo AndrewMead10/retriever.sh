@@ -5,8 +5,8 @@ Production-ready FastAPI + React implementation that turns the original `vector-
 ## Highlights
 
 - 🔐 **Self-service accounts** – email/password auth with JWT refresh, automatic account provisioning, and single-user billing ready for future org support.
-- 🧱 **Project isolation** – each project stores its text documents in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
-- 🔎 **Text retrieval** – Remote Jina embeddings and Vespa hybrid ranking power project-scoped document search without a separate image pipeline.
+- 🧱 **Project isolation** – each project stores its retrieval items in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
+- 🔎 **Multimodal retrieval** – Remote Jina omni embeddings and Vespa hybrid ranking power project-scoped search across text, images, audio, video, and PDFs.
 - ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Tinkering, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
 - 💳 **Polar integration** – plan checkout, self-service portal hand-off, and webhook handlers to activate subscriptions and keep limits in sync.
 - 🌗 **Light/Dark UI** – React + TanStack Router frontend with Tailwind v4 theming, project dashboard, and one-click theme toggle.
@@ -27,8 +27,8 @@ Key additions beyond the base template:
 | --- | --- |
 | `RAG_EMBEDDING_BASE_URL` | Remote OpenAI-compatible embedding service base URL (default `https://embedding-server.amqm.dev`). |
 | `RAG_EMBEDDING_API_KEY` | Bearer token for the remote embedding service. |
-| `RAG_EMBEDDING_MODEL` | Remote embedding model ID (default `jinaai/jina-embeddings-v5-text-small-retrieval-mlx`). |
-| `RAG_EMBED_DIM` | Text embedding dimension expected by Vespa (default `512`). |
+| `RAG_EMBEDDING_MODEL` | Remote embedding model ID (default `jinaai/jina-embeddings-v5-omni-small-retrieval`). |
+| `RAG_EMBED_DIM` | Embedding dimension expected by Vespa (default `512`). |
 | `RAG_EMBEDDING_TIMEOUT_SECONDS` | HTTP timeout for remote embedding requests (default `30`). |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |
 | `POLAR_PRODUCT_TINKERING_ID` | Polar product ID for the Tinkering plan subscription. |
@@ -112,23 +112,34 @@ Each project record stores embedding settings, vector store path, and summary co
 
 Use the `X-Project-Key` header with the value returned on project creation (or subsequent key rotations).
 
-#### Ingest document
+#### Ingest item
 
 ```
-POST /api/rag/projects/{project_id}/documents
+POST /api/rag/projects/{project_id}/items
 X-Project-Key: proj_...
 {
-  "title": "Doc title",
-  "text": "Full text",
+  "title": "Product launch brief",
+  "content": [
+    {
+      "type": "text",
+      "text": "Launch messaging and product visuals."
+    },
+    {
+      "type": "image_url",
+      "url": "https://example.com/product.png"
+    }
+  ],
   "metadata": {
-    "source": "https://example.com",
-    "category": "docs"
-  }
+    "source": "launch-drive",
+    "category": "marketing"
+  },
+  "external_id": "launch-brief-2026"
 }
 ```
 
 - Counts toward ingestion QPS and vector totals.
-- Enforces vector-cap before inserting into the Vespa corpus and mirrors metadata in PostgreSQL (`project_documents`) so document IDs stay stable.
+- Supports `text`, `image_url`, `image_base64`, `audio_url`, `audio_base64`, `video_url`, `video_base64`, `file_url`, and `file_base64` content blocks. File blocks are for PDFs; there is no separate file-upload API.
+- Enforces vector-cap before inserting into the Vespa corpus and mirrors metadata in PostgreSQL (`project_documents`) so item IDs stay stable.
 
 #### Hybrid query
 
@@ -136,21 +147,26 @@ X-Project-Key: proj_...
 POST /api/rag/projects/{project_id}/query
 X-Project-Key: proj_...
 {
-  "query": "what did we promise",
+  "input": [
+    {
+      "type": "text",
+      "text": "find the product launch brief"
+    }
+  ],
   "top_k": 5
 }
 ```
 
-Returns the weighted hybrid ranking powered by Vespa's `rag-hybrid` profile. Requests consume the plan-specific query QPS bucket.
+Returns the weighted hybrid ranking powered by Vespa's `rag-hybrid` profile. Query inputs can use the same text/image/audio/video/PDF content block shape as ingest. Requests consume the plan-specific query QPS bucket.
 
-#### Delete vector
+#### Delete item
 
 ```
-DELETE /api/rag/projects/{project_id}/vectors/{document_id}
+DELETE /api/rag/projects/{project_id}/items/{item_id}
 X-Project-Key: proj_...
 ```
 
-Removes the document from Vespa (keyword + ANN indexes), soft-deletes it in PostgreSQL, and decrements usage counters so customers can free capacity.
+Removes the item from Vespa (keyword + ANN indexes), soft-deletes it in PostgreSQL, and decrements usage counters so customers can free capacity.
 
 ### Billing Endpoints (auth required)
 
@@ -173,7 +189,7 @@ Plan seeding defines the default caps:
 
 - QPS is enforced with token buckets stored in PostgreSQL (`rate_limit_buckets`).
 - Every plan enforces its vector cap on a per-project basis using the `plans.vector_limit` value.
-- Document vectors count toward the per-project vector cap.
+- Item vectors count toward the per-project vector cap.
 - Vector/storage caps are defined per plan and scale only when you switch tiers.
 - Limit errors return 402/429 with an upsell message so the frontend can surface upgrade prompts.
 
@@ -197,9 +213,9 @@ The suite verifies token-bucket behaviour and vector-cap checks. Additonal integ
 ## Developer Notes
 
 - Plan records are seeded at startup via `seed_plans`; change defaults there for future migrations.
-- Text document metadata is stored in PostgreSQL; Vespa holds the `rag_document` embedding index scoped by `project_id`.
+- Item metadata is stored in PostgreSQL; Vespa holds the `rag_document` embedding index scoped by `project_id`.
 - Polar webhooks rely on Checkout metadata containing `account_id`; ensure the checkout metadata set during session creation matches this expectation.
-- Text embeddings are generated by the remote OpenAI-compatible embedding server; the backend no longer loads a local model.
+- Multimodal embeddings are generated by the remote OpenAI-compatible embedding server; the backend no longer loads a local model.
 
 ## License
 

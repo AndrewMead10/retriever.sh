@@ -390,13 +390,13 @@
         }
       }
     },
-    "/api/rag/projects/{project_id}/documents": {
+    "/api/rag/projects/{project_id}/items": {
       "post": {
         "tags": [
           "rag"
         ],
-        "summary": "Ingest Document",
-        "operationId": "ingest_document_api_rag_projects__project_id__documents_post",
+        "summary": "Ingest Item",
+        "operationId": "ingest_item_api_rag_projects__project_id__items_post",
         "parameters": [
           {
             "name": "project_id",
@@ -430,7 +430,7 @@
               "schema": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/DocumentIn"
+                    "$ref": "#/components/schemas/ItemIn"
                   },
                   {
                     "type": "null"
@@ -447,7 +447,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocumentOut"
+                  "$ref": "#/components/schemas/ItemOut"
                 }
               }
             }
@@ -465,13 +465,13 @@
         }
       }
     },
-    "/api/rag/projects/{project_id}/vectors/{document_id}": {
+    "/api/rag/projects/{project_id}/items/{item_id}": {
       "delete": {
         "tags": [
           "rag"
         ],
-        "summary": "Delete Vector",
-        "operationId": "delete_vector_api_rag_projects__project_id__vectors__document_id__delete",
+        "summary": "Delete Item",
+        "operationId": "delete_item_api_rag_projects__project_id__items__item_id__delete",
         "parameters": [
           {
             "name": "project_id",
@@ -483,13 +483,13 @@
             }
           },
           {
-            "name": "document_id",
+            "name": "item_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "title": "Document Id"
+              "title": "Item Id"
             }
           },
           {
@@ -980,6 +980,52 @@
   },
   "components": {
     "schemas": {
+      "AudioBase64ContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "audio_base64",
+            "title": "Type"
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data",
+          "media_type"
+        ],
+        "title": "AudioBase64ContentBlock"
+      },
+      "AudioUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "audio_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "AudioUrlContentBlock"
+      },
       "CheckoutResponse": {
         "properties": {
           "url": {
@@ -1040,72 +1086,57 @@
         ],
         "title": "ContactResponse"
       },
-      "DocumentIn": {
+      "FileBase64ContentBlock": {
         "properties": {
-          "text": {
+          "type": {
+            "type": "string",
+            "const": "file_base64",
+            "title": "Type"
+          },
+          "data": {
             "type": "string",
             "minLength": 1,
-            "title": "Text"
+            "title": "Data"
           },
-          "title": {
+          "media_type": {
             "type": "string",
-            "minLength": 1,
-            "title": "Title"
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata"
+            "const": "application/pdf",
+            "title": "Media Type",
+            "default": "application/pdf"
           }
         },
         "type": "object",
         "required": [
-          "text",
-          "title"
+          "type",
+          "data"
         ],
-        "title": "DocumentIn"
+        "title": "FileBase64ContentBlock"
       },
-      "DocumentOut": {
+      "FileUrlContentBlock": {
         "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "content": {
+          "type": {
             "type": "string",
-            "title": "Content"
+            "const": "file_url",
+            "title": "Type"
           },
-          "title": {
+          "url": {
             "type": "string",
-            "title": "Title"
+            "minLength": 1,
+            "title": "Url"
           },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metadata"
-          },
-          "created_at": {
+          "media_type": {
             "type": "string",
-            "format": "date-time",
-            "title": "Created At"
+            "const": "application/pdf",
+            "title": "Media Type",
+            "default": "application/pdf"
           }
         },
         "type": "object",
         "required": [
-          "id",
-          "content",
-          "title",
-          "metadata",
-          "created_at"
+          "type",
+          "url"
         ],
-        "title": "DocumentOut"
+        "title": "FileUrlContentBlock"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1119,6 +1150,232 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImageBase64ContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "image_base64",
+            "title": "Type"
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data",
+          "media_type"
+        ],
+        "title": "ImageBase64ContentBlock"
+      },
+      "ImageUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "image_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "ImageUrlContentBlock"
+      },
+      "ItemIn": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Content"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "ItemIn"
+      },
+      "ItemOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Content"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "content",
+          "metadata",
+          "created_at"
+        ],
+        "title": "ItemOut"
       },
       "LoginRequest": {
         "properties": {
@@ -1523,10 +1780,55 @@
       },
       "QueryRequest": {
         "properties": {
-          "query": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Query"
+          "input": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Input"
           },
           "top_k": {
             "anyOf": [
@@ -1557,7 +1859,7 @@
         },
         "type": "object",
         "required": [
-          "query"
+          "input"
         ],
         "title": "QueryRequest"
       },
@@ -1583,30 +1885,97 @@
             "type": "integer",
             "title": "Id"
           },
-          "content": {
-            "type": "string",
-            "title": "Content"
-          },
           "title": {
             "type": "string",
             "title": "Title"
+          },
+          "content": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AudioBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/VideoBase64ContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileUrlContentBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/FileBase64ContentBlock"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "audio_base64": "#/components/schemas/AudioBase64ContentBlock",
+                  "audio_url": "#/components/schemas/AudioUrlContentBlock",
+                  "file_base64": "#/components/schemas/FileBase64ContentBlock",
+                  "file_url": "#/components/schemas/FileUrlContentBlock",
+                  "image_base64": "#/components/schemas/ImageBase64ContentBlock",
+                  "image_url": "#/components/schemas/ImageUrlContentBlock",
+                  "text": "#/components/schemas/TextContentBlock",
+                  "video_base64": "#/components/schemas/VideoBase64ContentBlock",
+                  "video_url": "#/components/schemas/VideoUrlContentBlock"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Content"
           },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
             "title": "Metadata"
           },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
           }
         },
         "type": "object",
         "required": [
           "id",
-          "content",
           "title",
+          "content",
           "metadata",
           "created_at"
         ],
@@ -1680,6 +2049,26 @@
           "email"
         ],
         "title": "ResetRequest"
+      },
+      "TextContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "text",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "text"
+        ],
+        "title": "TextContentBlock"
       },
       "UsageInfo": {
         "properties": {
@@ -1838,6 +2227,52 @@
           "message"
         ],
         "title": "VerifyEmailResponse"
+      },
+      "VideoBase64ContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "video_base64",
+            "title": "Type"
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Media Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data",
+          "media_type"
+        ],
+        "title": "VideoBase64ContentBlock"
+      },
+      "VideoUrlContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "video_url",
+            "title": "Type"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "VideoUrlContentBlock"
       }
     }
   }

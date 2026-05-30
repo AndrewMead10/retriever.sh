@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import httpx
 
@@ -38,36 +38,87 @@ class EmbeddingService:
         self._base_url = config.endpoint.rstrip("/")
         self._client = client or httpx.Client(timeout=config.timeout)
 
-    def embed_document(self, *, title: str, text: str) -> Sequence[float]:
+    def embed_item(self, *, title: str, content: Sequence[Mapping[str, Any]]) -> Sequence[float]:
         with _logfire_span(
-            "Build document embedding input",
+            "Build item embedding input",
             title_length=len(title),
-            text_length=len(text),
+            block_count=len(content),
         ):
-            document = f"{title.strip()}\n\n{text}" if title.strip() else text
+            document = self._build_embedding_input(title=title, content=content)
         return self._embed(document, task_type="retrieval.passage")
 
-    def embed_query(self, *, query: str) -> Sequence[float]:
+    def embed_query(self, *, content: Sequence[Mapping[str, Any]]) -> Sequence[float]:
         with _logfire_span(
-            "Build text query embedding input",
-            query_length=len(query),
+            "Build query embedding input",
+            block_count=len(content),
         ):
-            stripped_query = query.strip()
-        return self._embed(stripped_query, task_type="retrieval.query")
+            query_input = self._build_embedding_input(title="", content=content)
+        return self._embed(query_input, task_type="retrieval.query")
 
-    def _embed(self, text: str, *, task_type: str) -> Sequence[float]:
+    def _build_embedding_input(
+        self, *, title: str, content: Sequence[Mapping[str, Any]]
+    ) -> str | dict[str, Any]:
+        text_blocks = [block for block in content if block.get("type") == "text"]
+        if len(text_blocks) == len(content):
+            text = "\n\n".join(str(block.get("text", "")).strip() for block in text_blocks).strip()
+            return f"{title.strip()}\n\n{text}" if title.strip() else text
+
+        blocks: list[dict[str, str]] = []
+        if title.strip():
+            blocks.append({"type": "text", "value": title.strip()})
+        for block in content:
+            blocks.append(self._to_provider_block(block))
+        return {"content": blocks}
+
+    def _to_provider_block(self, block: Mapping[str, Any]) -> dict[str, str]:
+        block_type = block.get("type")
+        if block_type == "text":
+            return {"type": "text", "value": str(block.get("text", "")).strip()}
+
+        if isinstance(block_type, str) and block_type.endswith("_url"):
+            return {
+                "type": self._provider_media_type(block_type),
+                "format": "url",
+                "value": str(block.get("url", "")).strip(),
+            }
+
+        if isinstance(block_type, str) and block_type.endswith("_base64"):
+            provider_block = {
+                "type": self._provider_media_type(block_type),
+                "format": "base64",
+                "value": str(block.get("data", "")).strip(),
+            }
+            media_type = block.get("media_type")
+            if media_type:
+                provider_block["media_type"] = str(media_type)
+            return provider_block
+
+        raise EmbeddingProviderError(f"Unsupported content block type: {block_type}")
+
+    def _provider_media_type(self, block_type: str) -> str:
+        if block_type.startswith("image_"):
+            return "image"
+        if block_type.startswith("audio_"):
+            return "audio"
+        if block_type.startswith("video_"):
+            return "video"
+        if block_type.startswith("file_"):
+            return "file"
+        raise EmbeddingProviderError(f"Unsupported content block type: {block_type}")
+
+    def _embed(self, embedding_input: str | Mapping[str, Any], *, task_type: str) -> Sequence[float]:
         if not self._config.api_key:
             raise EmbeddingProviderError("RAG_EMBEDDING_API_KEY is not configured")
 
         with _logfire_span(
             "Remote embedding request",
-            text_length=len(text),
+            input_type="text" if isinstance(embedding_input, str) else "multimodal",
             target_dim=self._config.embed_dim,
             model_id=self._config.model_id,
             task_type=task_type,
         ):
             payload = {
-                "input": text,
+                "input": [embedding_input],
                 "model": self._config.model_id,
                 "encoding_format": "float",
                 "dimensions": self._config.embed_dim,

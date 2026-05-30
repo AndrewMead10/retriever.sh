@@ -2,11 +2,11 @@
 
 ## Overview
 
-retriever.sh exposes project-scoped document retrieval APIs:
+retriever.sh exposes project-scoped multimodal retrieval APIs:
 
-- Ingest: `POST /api/rag/projects/{project_id}/documents`
+- Ingest: `POST /api/rag/projects/{project_id}/items`
 - Query: `POST /api/rag/projects/{project_id}/query`
-- Delete: `DELETE /api/rag/projects/{project_id}/vectors/{document_id}`
+- Delete: `DELETE /api/rag/projects/{project_id}/items/{item_id}`
 
 All operations require:
 - `project_id` in the URL path
@@ -29,11 +29,27 @@ RETRIEVER_PROJECT_KEY=proj_...your_key...
 https://retriever.sh
 ```
 
+## Content Blocks
+
+Use the same typed block shape for item `content` and query `input`:
+
+- `{"type": "text", "text": "..."}`
+- `{"type": "image_url", "url": "https://..."}`
+- `{"type": "image_base64", "data": "...", "media_type": "image/png"}`
+- `{"type": "audio_url", "url": "https://..."}`
+- `{"type": "audio_base64", "data": "...", "media_type": "audio/mpeg"}`
+- `{"type": "video_url", "url": "https://..."}`
+- `{"type": "video_base64", "data": "...", "media_type": "video/mp4"}`
+- `{"type": "file_url", "url": "https://...", "media_type": "application/pdf"}`
+- `{"type": "file_base64", "data": "...", "media_type": "application/pdf"}`
+
+There is no separate file-upload endpoint.
+
 ## API Reference
 
-### 1. INGEST - Add a Document
+### 1. INGEST - Add an Item
 
-**Endpoint:** `POST /api/rag/projects/{project_id}/documents`
+**Endpoint:** `POST /api/rag/projects/{project_id}/items`
 
 **Headers:**
 ```text
@@ -44,16 +60,26 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "title": "Python Installation Guide",
-  "text": "To install Python, visit python.org...",
+  "title": "Product launch brief",
+  "content": [
+    {
+      "type": "text",
+      "text": "Launch messaging and product visuals."
+    },
+    {
+      "type": "image_url",
+      "url": "https://example.com/product.png"
+    }
+  ],
   "metadata": {
-    "source": "https://python.org/downloads/",
-    "category": "docs"
-  }
+    "source": "launch-drive",
+    "category": "marketing"
+  },
+  "external_id": "launch-brief-2026"
 }
 ```
 
-### 2. QUERY - Hybrid Text Search
+### 2. QUERY - Hybrid Multimodal Search
 
 **Endpoint:** `POST /api/rag/projects/{project_id}/query`
 
@@ -66,15 +92,24 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "query": "How do I install Python?",
+  "input": [
+    {
+      "type": "text",
+      "text": "Find the launch brief with this product image"
+    },
+    {
+      "type": "image_url",
+      "url": "https://example.com/reference.png"
+    }
+  ],
   "top_k": 5,
   "vector_k": 40
 }
 ```
 
-### 3. DELETE - Remove a Document Vector
+### 3. DELETE - Remove an Item
 
-**Endpoint:** `DELETE /api/rag/projects/{project_id}/vectors/{document_id}`
+**Endpoint:** `DELETE /api/rag/projects/{project_id}/items/{item_id}`
 
 **Headers:**
 ```text
@@ -93,7 +128,10 @@ project_key = os.environ["RETRIEVER_PROJECT_KEY"]
 results = requests.post(
     f"https://retriever.sh/api/rag/projects/{project_id}/query",
     headers={"X-Project-Key": project_key, "Content-Type": "application/json"},
-    json={"query": "shipping policy", "top_k": 5},
+    json={
+        "input": [{"type": "text", "text": "shipping policy"}],
+        "top_k": 5,
+    },
     timeout=30,
 )
 results.raise_for_status()
@@ -105,7 +143,7 @@ print(results.json().get("results", []))
 
 - `400`: invalid payload
 - `401`: missing or invalid `X-Project-Key`
-- `404`: project or document not found
+- `404`: project or item not found
 - `429`: query/ingest QPS rate limit exceeded
 - `402`: plan capacity/limit reached
 

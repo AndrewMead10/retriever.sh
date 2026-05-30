@@ -16,6 +16,12 @@ schema rag_document {
       match: text
       stemming: best
     }
+    field content_blocks type string {
+      indexing: attribute | summary
+    }
+    field primary_modality type string {
+      indexing: attribute | summary
+    }
     field metadata type string {
       indexing: attribute | summary
     }

@@ -104,10 +104,10 @@ function DocsPage() {
     ingest: {
       python: `import requests
 
-def ingest_document(project_id: str, api_key: str, payload: dict):
-    """Ingest a document into a project"""
+def ingest_item(project_id: str, api_key: str, payload: dict):
+    """Ingest a multimodal item into a project"""
     response = requests.post(
-        f"https://retriever.sh/api/rag/projects/{project_id}/documents",
+        f"https://retriever.sh/api/rag/projects/{project_id}/items",
         headers={
             "X-Project-Key": api_key,
             "Content-Type": "application/json"
@@ -118,20 +118,24 @@ def ingest_document(project_id: str, api_key: str, payload: dict):
     return response.json()
 
 # Usage
-document = {
-    "title": "Python Installation Guide",
-    "text": "To install Python, visit python.org...",
+item = {
+    "title": "Product launch brief",
+    "content": [
+        {"type": "text", "text": "Launch messaging and product visuals."},
+        {"type": "image_url", "url": "https://example.com/product.png"}
+    ],
     "metadata": {
-        "source": "https://python.org/downloads/",
-        "category": "docs"
-    }
+        "source": "launch-drive",
+        "category": "marketing"
+    },
+    "external_id": "launch-brief-2026"
 }
-result = ingest_document("your-project-uuid", "proj_...your_key...", document)
-print(f"Document ID: {result['id']}")`,
-      javascript: `async function ingestDocument(projectId, apiKey, payload) {
-  // Ingest a document into a project
+result = ingest_item("your-project-uuid", "proj_...your_key...", item)
+print(f"Item ID: {result['id']}")`,
+      javascript: `async function ingestItem(projectId, apiKey, payload) {
+  // Ingest a multimodal item into a project
   const response = await fetch(
-    \`/api/rag/projects/\${projectId}/documents\`,
+    \`/api/rag/projects/\${projectId}/items\`,
     {
       method: 'POST',
       headers: {
@@ -148,51 +152,64 @@ print(f"Document ID: {result['id']}")`,
 }
 
 // Usage
-const document = {
-  title: 'Python Installation Guide',
-  text: 'To install Python, visit python.org...',
+const item = {
+  title: 'Product launch brief',
+  content: [
+    { type: 'text', text: 'Launch messaging and product visuals.' },
+    { type: 'image_url', url: 'https://example.com/product.png' }
+  ],
   metadata: {
-    source: 'https://python.org/downloads/',
-    category: 'docs'
-  }
+    source: 'launch-drive',
+    category: 'marketing'
+  },
+  external_id: 'launch-brief-2026'
 };
-const result = await ingestDocument('your-project-uuid', 'proj_...your_key...', document);
-console.log('Document ID:', result.id);`,
-      curl: `# Ingest a document into a project
-curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/documents \\
+const result = await ingestItem('your-project-uuid', 'proj_...your_key...', item);
+console.log('Item ID:', result.id);`,
+      curl: `# Ingest a multimodal item into a project
+curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/items \\
   -H "X-Project-Key: proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
-    "title": "Python Installation Guide",
-    "text": "To install Python, visit python.org...",
+    "title": "Product launch brief",
+    "content": [
+      { "type": "text", "text": "Launch messaging and product visuals." },
+      { "type": "image_url", "url": "https://example.com/product.png" }
+    ],
     "metadata": {
-      "source": "https://python.org/downloads/",
-      "category": "docs"
-    }
+      "source": "launch-drive",
+      "category": "marketing"
+    },
+    "external_id": "launch-brief-2026"
   }'`,
     },
     query: {
       python: `import requests
 
-def query_project(project_id: str, api_key: str, query: str, top_k: int = 5):
-    """Query a project using hybrid retrieval"""
+def query_project(project_id: str, api_key: str, input_blocks: list[dict], top_k: int = 5):
+    """Query a project using text, image, audio, video, or PDF inputs"""
     response = requests.post(
         f"https://retriever.sh/api/rag/projects/{project_id}/query",
         headers={
             "X-Project-Key": api_key,
             "Content-Type": "application/json"
         },
-        json={"query": query, "top_k": top_k},
+        json={"input": input_blocks, "top_k": top_k},
     )
     response.raise_for_status()
     return response.json()
 
 # Usage
-results = query_project("your-project-uuid", "proj_...your_key...", "How do I install Python?", top_k=5)
+results = query_project(
+    "your-project-uuid",
+    "proj_...your_key...",
+    [{"type": "text", "text": "Find the launch brief with the product image"}],
+    top_k=5,
+)
 for result in results["results"]:
-    print(f"{result['title']}: {result['content'][:120]}...")`,
+    print(f"{result['title']}: {result['score']}")`,
       javascript: `async function queryProject(projectId, apiKey, payload) {
-  // Query a project using hybrid retrieval
+  // Query a project using text, image, audio, video, or PDF inputs
   const response = await fetch(
     \`/api/rag/projects/\${projectId}/query\`,
     {
@@ -212,19 +229,25 @@ for result in results["results"]:
 
 // Usage
 const results = await queryProject('your-project-uuid', 'proj_...your_key...', {
-  query: 'How do I install Python?',
+  input: [
+    { type: 'text', text: 'Find the launch brief with this image' },
+    { type: 'image_url', url: 'https://example.com/reference.png' }
+  ],
   top_k: 5,
   vector_k: 40
 });
 results.results.forEach(result => {
-  console.log(\`\${result.title}: \${result.content.slice(0, 120)}...\`);
+  console.log(\`\${result.title}: \${result.score}\`);
 });`,
-      curl: `# Query a project using hybrid retrieval
+      curl: `# Query a project using text, image, audio, video, or PDF inputs
 curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/query \\
   -H "X-Project-Key: proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
-    "query": "How do I install Python?",
+    "input": [
+      { "type": "text", "text": "Find the launch brief with this image" },
+      { "type": "image_url", "url": "https://example.com/reference.png" }
+    ],
     "top_k": 5,
     "vector_k": 40
   }'`,
@@ -232,21 +255,21 @@ curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/query \\
     delete: {
       python: `import requests
 
-def delete_vector(project_id: str, document_id: int, api_key: str) -> None:
-    """Delete a document vector from a project"""
+def delete_item(project_id: str, item_id: int, api_key: str) -> None:
+    """Delete an item from a project"""
     response = requests.delete(
-        f"https://retriever.sh/api/rag/projects/{project_id}/vectors/{document_id}",
+        f"https://retriever.sh/api/rag/projects/{project_id}/items/{item_id}",
         headers={"X-Project-Key": api_key},
     )
     if response.status_code != 204:
         raise Exception(f"Delete failed: {response.text}")
 
 # Usage
-delete_vector("your-project-uuid", 456, "proj_...your_key...")`,
-      javascript: `async function deleteVector(projectId, documentId, apiKey) {
-  // Delete a document vector from a project
+delete_item("your-project-uuid", 456, "proj_...your_key...")`,
+      javascript: `async function deleteItem(projectId, itemId, apiKey) {
+  // Delete an item from a project
   const response = await fetch(
-    \`/api/rag/projects/\${projectId}/vectors/\${documentId}\`,
+    \`/api/rag/projects/\${projectId}/items/\${itemId}\`,
     {
       method: 'DELETE',
       headers: { 'X-Project-Key': apiKey }
@@ -259,9 +282,9 @@ delete_vector("your-project-uuid", 456, "proj_...your_key...")`,
 }
 
 // Usage
-await deleteVector('your-project-uuid', 456, 'proj_...your_key...');`,
-      curl: `# Delete a document vector from a project
-curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/456 \\
+await deleteItem('your-project-uuid', 456, 'proj_...your_key...');`,
+      curl: `# Delete an item from a project
+curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456 \\
   -H "X-Project-Key: proj_...your_key..."`,
     },
   }
@@ -274,7 +297,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
           <h1 className="text-6xl font-black dither-text mb-4">DOCUMENTATION</h1>
           <div className="h-1 bg-foreground w-32 mx-auto mb-6"></div>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Project-scoped document retrieval with ingest, hybrid query, and delete APIs.
+            Project-scoped multimodal retrieval with item ingest, hybrid query, and delete APIs.
           </p>
         </div>
 
@@ -367,11 +390,11 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
           </div>
         </div>
 
-        {/* Text Search Space */}
+        {/* Multimodal Search Space */}
         <div className="mb-16">
-          <h2 className="text-4xl font-black dither-text mb-8 text-center">TEXT SEARCH SPACE</h2>
+          <h2 className="text-4xl font-black dither-text mb-8 text-center">MULTIMODAL SEARCH SPACE</h2>
           <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Ingest documents, run hybrid retrieval, and remove vectors when needed.
+            Ingest text, image, audio, video, or PDF items, run hybrid retrieval, and delete items when needed.
           </p>
 
           <div className="space-y-8">
@@ -379,12 +402,12 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
             <div id="ingest" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-2xl font-black mb-2">1. INGEST DOCUMENT</h3>
-                  <p className="text-muted-foreground">Store a document and its embedding for retrieval</p>
+                  <h3 className="text-2xl font-black mb-2">1. INGEST ITEM</h3>
+                  <p className="text-muted-foreground">Store multimodal content and its embedding for retrieval</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
-                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/documents</span>
+                    <span className="font-mono text-sm">POST /api/rag/projects/:project_id/items</span>
                   </div>
                   <button
                     onClick={() => copyLinkToSection('ingest')}
@@ -411,7 +434,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
                   </div>
                   <div className="bg-background border border-foreground p-3">
                     <div className="font-mono mb-1">body</div>
-                    <div className="text-muted-foreground text-xs">DocumentIn (required)</div>
+                    <div className="text-muted-foreground text-xs">ItemIn (required)</div>
                   </div>
                 </div>
               </div>
@@ -436,13 +459,23 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
                   >
 {`{
   "id": 456,
-  "content": "To install Python, visit python.org...",
-  "title": "Python Installation Guide",
+  "title": "Product launch brief",
+  "content": [
+    {
+      "type": "text",
+      "text": "Launch messaging and product visuals."
+    },
+    {
+      "type": "image_url",
+      "url": "https://example.com/product.png"
+    }
+  ],
   "metadata": {
-    "source": "https://python.org/downloads/",
-    "category": "docs"
+    "source": "launch-drive",
+    "category": "marketing"
   },
-  "created_at": "2025-01-20T18:42:11.214Z"
+  "external_id": "launch-brief-2026",
+  "created_at": "2026-05-30T18:42:11.214Z"
 }`}
                   </SyntaxHighlighter>
                 </div>
@@ -484,8 +517,8 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
                     <div className="text-muted-foreground text-xs">header (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">query</div>
-                    <div className="text-muted-foreground text-xs">string (required)</div>
+                    <div className="font-mono mb-1">input</div>
+                    <div className="text-muted-foreground text-xs">content blocks (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
                     <div className="font-mono mb-1">top_k</div>
@@ -520,13 +553,24 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
   "results": [
     {
       "id": 456,
-      "content": "To install Python, visit python.org...",
-      "title": "Python Installation Guide",
+      "title": "Product launch brief",
+      "content": [
+        {
+          "type": "text",
+          "text": "Launch messaging and product visuals."
+        },
+        {
+          "type": "image_url",
+          "url": "https://example.com/product.png"
+        }
+      ],
       "metadata": {
-        "source": "https://python.org/downloads/",
-        "category": "docs"
+        "source": "launch-drive",
+        "category": "marketing"
       },
-      "created_at": "2025-01-20T18:42:11.214Z"
+      "external_id": "launch-brief-2026",
+      "created_at": "2026-05-30T18:42:11.214Z",
+      "score": 0.87
     }
   ]
 }`}
@@ -539,12 +583,12 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
             <div id="delete" className="bg-card border-2 border-foreground dither-border sharp-corners p-8 scroll-mt-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-2xl font-black mb-2">3. DELETE VECTOR</h3>
-                  <p className="text-muted-foreground">Remove a document vector by ID</p>
+                  <h3 className="text-2xl font-black mb-2">3. DELETE ITEM</h3>
+                  <p className="text-muted-foreground">Remove an item by ID</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 border border-primary px-4 py-2 sharp-corners">
-                    <span className="font-mono text-sm">DELETE /api/rag/projects/:project_id/vectors/:document_id</span>
+                    <span className="font-mono text-sm">DELETE /api/rag/projects/:project_id/items/:item_id</span>
                   </div>
                   <button
                     onClick={() => copyLinkToSection('delete')}
@@ -566,7 +610,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/vectors/4
                     <div className="text-muted-foreground text-xs">path param (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">document_id</div>
+                    <div className="font-mono mb-1">item_id</div>
                     <div className="text-muted-foreground text-xs">path param (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">

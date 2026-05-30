@@ -11,6 +11,8 @@ from ..database.models import ProjectDocument
 
 logger = logging.getLogger(__name__)
 
+CONTENT_BLOCKS_METADATA_KEY = "__retriever_content"
+
 
 class VespaClientError(RuntimeError):
     pass
@@ -158,11 +160,14 @@ class VespaVectorStore:
 
     def upsert_document(self, *, document: ProjectDocument, embedding: Sequence[float]) -> None:
         embedding_vector = self._normalise_source_embedding(embedding)
+        content_blocks = document.metadata_.get(CONTENT_BLOCKS_METADATA_KEY, []) if document.metadata_ else []
         fields = {
             "project_id": self._project_id,
             "document_id": document.id,
             "title": document.title,
             "content": document.content,
+            "content_blocks": json.dumps(content_blocks),
+            "primary_modality": self._primary_modality(content_blocks),
             "metadata": json.dumps(document.metadata_ or {}),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
@@ -199,3 +204,20 @@ class VespaVectorStore:
         if len(values) != self._source_dim:
             raise ValueError(f"Expected embedding dimension {self._source_dim}, got {len(values)}")
         return values
+
+    def _primary_modality(self, content_blocks: Sequence[Mapping[str, Any]]) -> str:
+        for block in content_blocks:
+            block_type = block.get("type")
+            if not isinstance(block_type, str):
+                continue
+            if block_type == "text":
+                return "text"
+            if block_type.startswith("image_"):
+                return "image"
+            if block_type.startswith("audio_"):
+                return "audio"
+            if block_type.startswith("video_"):
+                return "video"
+            if block_type.startswith("file_"):
+                return "file"
+        return "unknown"

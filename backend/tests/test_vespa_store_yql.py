@@ -124,7 +124,7 @@ def test_upsert_sends_float_embedding_field(monkeypatch):
         id=42,
         title="t",
         content="c",
-        metadata_={},
+        metadata_={"__retriever_content": [{"type": "image_url", "url": "https://example.com/a.png"}]},
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         active=True,
@@ -136,6 +136,8 @@ def test_upsert_sends_float_embedding_field(monkeypatch):
     assert client.document_id == "doc-42"
     assert "embedding" in client.fields
     assert client.fields["embedding"] == {"values": [0.1, 0.2, -0.3, 0.4, 1.0, -2.0, 3.0, -4.0]}
+    assert client.fields["content_blocks"] == '[{"type": "image_url", "url": "https://example.com/a.png"}]'
+    assert client.fields["primary_modality"] == "image"
 
 
 def test_execute_search_sorts_rows_by_relevance_descending():

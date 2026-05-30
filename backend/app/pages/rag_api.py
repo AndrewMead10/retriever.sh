@@ -22,8 +22,9 @@ from ..functions.accounts import decrement_vector_usage, ensure_vector_capacity,
 from ..functions.api_keys import verify_api_key
 from ..functions.rate_limits import consume_rate_limit
 from ..schemas.rag import (
-    DocumentIn,
-    DocumentOut,
+    ContentBlock,
+    ItemIn,
+    ItemOut,
     QueryRequest,
     QueryResponse,
     QueryResult,
@@ -33,6 +34,9 @@ from ..services.text_embeddings import EmbeddingProviderError
 from ..services.vector_store import vector_store_registry
 
 router = APIRouter(prefix="/rag", tags=["rag"])
+
+CONTENT_BLOCKS_METADATA_KEY = "__retriever_content"
+EXTERNAL_ID_METADATA_KEY = "__retriever_external_id"
 
 
 def _logfire_span(message_template: str, **attributes: Any):
@@ -71,12 +75,14 @@ def _get_plan(project: Project) -> Plan:
     return subscription.plan
 
 
-def _document_to_response(document: ProjectDocument) -> dict:
+def _item_to_response(document: ProjectDocument) -> dict:
+    metadata = dict(document.metadata_ or {})
     return {
         "id": document.id,
-        "content": document.content,
         "title": document.title,
-        "metadata": document.metadata_ or {},
+        "content": _content_blocks_from_metadata(metadata, fallback=document.content),
+        "metadata": _public_metadata(metadata),
+        "external_id": metadata.get(EXTERNAL_ID_METADATA_KEY),
         "created_at": document.created_at,
     }
 
@@ -95,24 +101,86 @@ def _parse_metadata(value: Any) -> dict:
     return {}
 
 
+def _public_metadata(metadata: Mapping[str, Any]) -> dict:
+    return {
+        key: value
+        for key, value in metadata.items()
+        if key not in {CONTENT_BLOCKS_METADATA_KEY, EXTERNAL_ID_METADATA_KEY}
+    }
+
+
+def _content_blocks_from_metadata(metadata: Mapping[str, Any], *, fallback: str) -> list[dict]:
+    blocks = metadata.get(CONTENT_BLOCKS_METADATA_KEY)
+    if isinstance(blocks, list) and blocks:
+        return [block for block in blocks if isinstance(block, dict)]
+    return [{"type": "text", "text": fallback}]
+
+
+def _metadata_for_item(payload: ItemIn) -> dict:
+    metadata = dict(payload.metadata or {})
+    metadata[CONTENT_BLOCKS_METADATA_KEY] = _dump_content_blocks(payload.content)
+    if payload.external_id is not None:
+        metadata[EXTERNAL_ID_METADATA_KEY] = payload.external_id
+    return metadata
+
+
+def _dump_content_blocks(blocks: list[ContentBlock]) -> list[dict]:
+    return [block.model_dump() for block in blocks]
+
+
+def _content_text_projection(title: str, blocks: list[ContentBlock]) -> str:
+    parts: list[str] = []
+    for block in blocks:
+        data = block.model_dump()
+        block_type = data["type"]
+        if block_type == "text":
+            value = data["text"].strip()
+        elif block_type.endswith("_url"):
+            value = f"{block_type.removesuffix('_url')}: {data['url'].strip()}"
+        else:
+            media_type = data.get("media_type", "base64")
+            value = f"{block_type.removesuffix('_base64')}: {media_type}"
+        if value:
+            parts.append(value)
+
+    projection = "\n\n".join(parts).strip()
+    if projection:
+        return projection
+    return title.strip()
+
+
+def _text_blocks_projection(blocks: list[ContentBlock]) -> str:
+    values = []
+    for block in blocks:
+        data = block.model_dump()
+        if data["type"] == "text":
+            value = data["text"].strip()
+            if value:
+                values.append(value)
+    return "\n\n".join(values)
+
+
 def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
+    metadata = _parse_metadata(hit.get("metadata"))
     return {
         "id": hit.get("document_id"),
-        "content": hit.get("content", ""),
         "title": hit.get("title", ""),
-        "metadata": _parse_metadata(hit.get("metadata")),
+        "content": _content_blocks_from_metadata(metadata, fallback=str(hit.get("content", ""))),
+        "metadata": _public_metadata(metadata),
+        "external_id": metadata.get(EXTERNAL_ID_METADATA_KEY),
         "created_at": hit.get("created_at"),
+        "score": hit.get("_vespa_relevance"),
     }
 
 
 @router.post(
-    "/projects/{project_id}/documents",
-    response_model=DocumentOut,
+    "/projects/{project_id}/items",
+    response_model=ItemOut,
     status_code=status.HTTP_201_CREATED,
 )
-async def ingest_document(
+async def ingest_item(
     project_id: str = Path(...),
-    payload: DocumentIn | None = None,
+    payload: ItemIn | None = None,
     db: Session = Depends(get_db),
     x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
 ):
@@ -141,8 +209,8 @@ async def ingest_document(
     document = ProjectDocument(
         project_id=project.id,
         title=payload.title,
-        content=payload.text,
-        metadata_=payload.metadata or {},
+        content=_content_text_projection(payload.title, payload.content),
+        metadata_=_metadata_for_item(payload),
         vespa_document_id=f"pending_{secrets.token_hex(8)}",
     )
     db.add(document)
@@ -153,7 +221,10 @@ async def ingest_document(
 
     try:
         embedding = await anyio.to_thread.run_sync(
-            lambda: embedder.embed_document(title=payload.title, text=payload.text)
+            lambda: embedder.embed_item(
+                title=payload.title,
+                content=_dump_content_blocks(payload.content),
+            )
         )
     except EmbeddingProviderError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
@@ -169,16 +240,16 @@ async def ingest_document(
     db.commit()
     db.refresh(document)
 
-    return DocumentOut.model_validate(_document_to_response(document))
+    return ItemOut.model_validate(_item_to_response(document))
 
 
 @router.delete(
-    "/projects/{project_id}/vectors/{document_id}",
+    "/projects/{project_id}/items/{item_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def delete_vector(
+async def delete_item(
     project_id: str = Path(...),
-    document_id: int = Path(..., ge=1),
+    item_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
     x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
 ):
@@ -193,13 +264,13 @@ async def delete_vector(
         db.query(ProjectDocument)
         .filter(
             ProjectDocument.project_id == project.id,
-            ProjectDocument.id == document_id,
+            ProjectDocument.id == item_id,
             ProjectDocument.active == True,
         )
         .first()
     )
     if document is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Item not found")
 
     vector_store = vector_store_registry.get_vector_store(project)
     await anyio.to_thread.run_sync(lambda: vector_store.delete_document(document))
@@ -232,7 +303,7 @@ async def query_project(
         logfire.info(
             "RAG query started",
             project_id=project_id,
-            query_length=len(payload.query) if payload and payload.query else 0,
+            input_blocks=len(payload.input) if payload else 0,
             top_k=payload.top_k if payload else None,
             vector_k=payload.vector_k if payload else None,
         )
@@ -259,22 +330,25 @@ async def query_project(
     vector_k = payload.vector_k or max(project.vector_search_k, top_k)
 
     with _logfire_span(
-        "RAG text query pipeline",
+        "RAG query pipeline",
         project_id=project_id,
-        query_length=len(payload.query),
+        input_blocks=len(payload.input),
         top_k=top_k,
         vector_k=vector_k,
     ):
-        with _logfire_span("Generate text query embedding", project_id=project_id):
+        with _logfire_span("Generate query embedding", project_id=project_id):
             try:
-                embedding = await anyio.to_thread.run_sync(lambda: embedder.embed_query(query=payload.query))
+                embedding = await anyio.to_thread.run_sync(
+                    lambda: embedder.embed_query(content=_dump_content_blocks(payload.input))
+                )
             except EmbeddingProviderError as exc:
                 raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
         with _logfire_span("Normalise full-text search query", project_id=project_id):
-            fts_query = normalise_fts_query(payload.query)
+            query_text = _text_blocks_projection(payload.input)
+            fts_query = normalise_fts_query(query_text)
 
-        with _logfire_span("Execute hybrid text search", project_id=project_id):
+        with _logfire_span("Execute hybrid search", project_id=project_id):
             rows = await anyio.to_thread.run_sync(
                 lambda: vector_store.hybrid_search(
                     embedding=embedding,
@@ -287,7 +361,7 @@ async def query_project(
             )
 
     with _logfire_span(
-        "Persist text query usage",
+        "Persist query usage",
         project_id=project_id,
         user_id=user.id,
         result_count=len(rows),
@@ -295,7 +369,7 @@ async def query_project(
         increment_usage(db, user=user, queries=1)
         db.commit()
 
-    with _logfire_span("Map text query results", project_id=project_id, result_count=len(rows)):
+    with _logfire_span("Map query results", project_id=project_id, result_count=len(rows)):
         results = [QueryResult.model_validate(_vespa_hit_to_response(row)) for row in rows]
 
     # Log query success if LogFire is enabled

@@ -226,7 +226,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/rag/projects/{project_id}/documents": {
+    "/api/rag/projects/{project_id}/items": {
         parameters: {
             query?: never;
             header?: never;
@@ -235,15 +235,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ingest Document */
-        post: operations["ingest_document_api_rag_projects__project_id__documents_post"];
+        /** Ingest Item */
+        post: operations["ingest_item_api_rag_projects__project_id__items_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/rag/projects/{project_id}/vectors/{document_id}": {
+    "/api/rag/projects/{project_id}/items/{item_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -253,8 +253,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Vector */
-        delete: operations["delete_vector_api_rag_projects__project_id__vectors__document_id__delete"];
+        /** Delete Item */
+        delete: operations["delete_item_api_rag_projects__project_id__items__item_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -452,6 +452,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AudioBase64ContentBlock */
+        AudioBase64ContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "audio_base64";
+            /** Data */
+            data: string;
+            /** Media Type */
+            media_type: string;
+        };
+        /** AudioUrlContentBlock */
+        AudioUrlContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "audio_url";
+            /** Url */
+            url: string;
+        };
         /** CheckoutResponse */
         CheckoutResponse: {
             /** Url */
@@ -478,39 +500,97 @@ export interface components {
             /** Message */
             message: string;
         };
-        /** DocumentIn */
-        DocumentIn: {
-            /** Text */
-            text: string;
-            /** Title */
-            title: string;
-            /** Metadata */
-            metadata?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /** DocumentOut */
-        DocumentOut: {
-            /** Id */
-            id: number;
-            /** Content */
-            content: string;
-            /** Title */
-            title: string;
-            /** Metadata */
-            metadata: {
-                [key: string]: unknown;
-            };
+        /** FileBase64ContentBlock */
+        FileBase64ContentBlock: {
             /**
-             * Created At
-             * Format: date-time
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
-            created_at: string;
+            type: "file_base64";
+            /** Data */
+            data: string;
+            /**
+             * Media Type
+             * @default application/pdf
+             * @constant
+             */
+            media_type: "application/pdf";
+        };
+        /** FileUrlContentBlock */
+        FileUrlContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "file_url";
+            /** Url */
+            url: string;
+            /**
+             * Media Type
+             * @default application/pdf
+             * @constant
+             */
+            media_type: "application/pdf";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImageBase64ContentBlock */
+        ImageBase64ContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "image_base64";
+            /** Data */
+            data: string;
+            /** Media Type */
+            media_type: string;
+        };
+        /** ImageUrlContentBlock */
+        ImageUrlContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "image_url";
+            /** Url */
+            url: string;
+        };
+        /** ItemIn */
+        ItemIn: {
+            /** Title */
+            title: string;
+            /** Content */
+            content: (components["schemas"]["TextContentBlock"] | components["schemas"]["ImageUrlContentBlock"] | components["schemas"]["ImageBase64ContentBlock"] | components["schemas"]["AudioUrlContentBlock"] | components["schemas"]["AudioBase64ContentBlock"] | components["schemas"]["VideoUrlContentBlock"] | components["schemas"]["VideoBase64ContentBlock"] | components["schemas"]["FileUrlContentBlock"] | components["schemas"]["FileBase64ContentBlock"])[];
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+            /** External Id */
+            external_id?: string | null;
+        };
+        /** ItemOut */
+        ItemOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Content */
+            content: (components["schemas"]["TextContentBlock"] | components["schemas"]["ImageUrlContentBlock"] | components["schemas"]["ImageBase64ContentBlock"] | components["schemas"]["AudioUrlContentBlock"] | components["schemas"]["AudioBase64ContentBlock"] | components["schemas"]["VideoUrlContentBlock"] | components["schemas"]["VideoBase64ContentBlock"] | components["schemas"]["FileUrlContentBlock"] | components["schemas"]["FileBase64ContentBlock"])[];
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** External Id */
+            external_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -649,8 +729,8 @@ export interface components {
         };
         /** QueryRequest */
         QueryRequest: {
-            /** Query */
-            query: string;
+            /** Input */
+            input: (components["schemas"]["TextContentBlock"] | components["schemas"]["ImageUrlContentBlock"] | components["schemas"]["ImageBase64ContentBlock"] | components["schemas"]["AudioUrlContentBlock"] | components["schemas"]["AudioBase64ContentBlock"] | components["schemas"]["VideoUrlContentBlock"] | components["schemas"]["VideoBase64ContentBlock"] | components["schemas"]["FileUrlContentBlock"] | components["schemas"]["FileBase64ContentBlock"])[];
             /** Top K */
             top_k?: number | null;
             /** Vector K */
@@ -665,19 +745,23 @@ export interface components {
         QueryResult: {
             /** Id */
             id: number;
-            /** Content */
-            content: string;
             /** Title */
             title: string;
+            /** Content */
+            content: (components["schemas"]["TextContentBlock"] | components["schemas"]["ImageUrlContentBlock"] | components["schemas"]["ImageBase64ContentBlock"] | components["schemas"]["AudioUrlContentBlock"] | components["schemas"]["AudioBase64ContentBlock"] | components["schemas"]["VideoUrlContentBlock"] | components["schemas"]["VideoBase64ContentBlock"] | components["schemas"]["FileUrlContentBlock"] | components["schemas"]["FileBase64ContentBlock"])[];
             /** Metadata */
             metadata: {
                 [key: string]: unknown;
             };
+            /** External Id */
+            external_id?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Score */
+            score?: number | null;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -710,6 +794,16 @@ export interface components {
              * Format: email
              */
             email: string;
+        };
+        /** TextContentBlock */
+        TextContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "text";
+            /** Text */
+            text: string;
         };
         /** UsageInfo */
         UsageInfo: {
@@ -759,6 +853,28 @@ export interface components {
             success: boolean;
             /** Message */
             message: string;
+        };
+        /** VideoBase64ContentBlock */
+        VideoBase64ContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "video_base64";
+            /** Data */
+            data: string;
+            /** Media Type */
+            media_type: string;
+        };
+        /** VideoUrlContentBlock */
+        VideoUrlContentBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "video_url";
+            /** Url */
+            url: string;
         };
     };
     responses: never;
@@ -1113,7 +1229,7 @@ export interface operations {
             };
         };
     };
-    ingest_document_api_rag_projects__project_id__documents_post: {
+    ingest_item_api_rag_projects__project_id__items_post: {
         parameters: {
             query?: never;
             header?: {
@@ -1126,7 +1242,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["DocumentIn"] | null;
+                "application/json": components["schemas"]["ItemIn"] | null;
             };
         };
         responses: {
@@ -1136,7 +1252,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentOut"];
+                    "application/json": components["schemas"]["ItemOut"];
                 };
             };
             /** @description Validation Error */
@@ -1150,7 +1266,7 @@ export interface operations {
             };
         };
     };
-    delete_vector_api_rag_projects__project_id__vectors__document_id__delete: {
+    delete_item_api_rag_projects__project_id__items__item_id__delete: {
         parameters: {
             query?: never;
             header?: {
@@ -1158,7 +1274,7 @@ export interface operations {
             };
             path: {
                 project_id: string;
-                document_id: number;
+                item_id: number;
             };
             cookie?: never;
         };
