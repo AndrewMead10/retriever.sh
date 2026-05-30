@@ -4,7 +4,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0015_multimodal_rag_api"
+revision = "0015_omni_multimodal_api"
 down_revision = "0014_remote_embeddings"
 branch_labels = None
 depends_on = None
