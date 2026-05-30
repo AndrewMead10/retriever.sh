@@ -104,19 +104,21 @@ Configure a tunnel (ngrok, Cloudflare, etc.) and add the forwarded URL as a webh
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/api/projects/onload` | Returns plan info, usage counters, and project summaries for the signed-in user. |
-| `POST` | `/api/projects/onsubmit` | Creates a project and returns the initial ingest API key (only shown once). |
+| `POST` | `/api/projects/onsubmit` | Creates a project and returns the initial project API key (only shown once). |
+| `POST` | `/api/projects` | Creates a project and returns a project API key when called with a management Bearer key. |
+| `POST` | `/api/projects/{project_id}/api-keys` | Creates another project API key when called with a management Bearer key. |
 
 Each project record stores embedding settings, vector store path, and summary counts. The frontend surfaces these details along with upgrade CTAs.
 
 ### Retrieval API (project key required)
 
-Use the `X-Project-Key` header with the value returned on project creation (or subsequent key rotations).
+Use `Authorization: Bearer <project_api_key>` with the value returned on project creation or subsequent key rotations.
 
 #### Ingest item
 
 ```
 POST /api/rag/projects/{project_id}/items
-X-Project-Key: proj_...
+Authorization: Bearer retr_proj_...
 {
   "title": "Product launch brief",
   "content": [
@@ -146,7 +148,7 @@ X-Project-Key: proj_...
 
 ```
 POST /api/rag/projects/{project_id}/query
-X-Project-Key: proj_...
+Authorization: Bearer retr_proj_...
 {
   "input": [
     {
@@ -164,7 +166,7 @@ Returns the weighted hybrid ranking powered by Vespa's `rag-hybrid` profile. Que
 
 ```
 DELETE /api/rag/projects/{project_id}/items/{item_id}
-X-Project-Key: proj_...
+Authorization: Bearer retr_proj_...
 ```
 
 Removes the item from Vespa (keyword + ANN indexes), soft-deletes it in PostgreSQL, and decrements usage counters so customers can free capacity.

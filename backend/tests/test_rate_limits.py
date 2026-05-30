@@ -127,7 +127,6 @@ def test_usage_counters_increment_and_vector_capacity(session: Session, seeded_u
         vector_search_k=20,
         vector_store_path="proj_capacity",
         vector_count=plan.vector_limit - 1,
-        ingest_api_key_hash="hash",
         active=True,
     )
     session.add(project)
@@ -201,7 +200,6 @@ def test_scale_plan_enforces_per_project_limit(session: Session):
         vector_search_k=20,
         vector_store_path="scale_proj",
         vector_count=limit - 1,
-        ingest_api_key_hash="hash",
         active=True,
     )
     session.add(project)

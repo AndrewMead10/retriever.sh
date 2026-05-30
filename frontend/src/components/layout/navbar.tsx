@@ -112,6 +112,17 @@ export function Navbar() {
                   <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ BILLING ]</span>
                   <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
                 </Link>
+                <Link
+                  to="/api-keys"
+                  className={`relative text-sm font-mono-jetbrains font-bold px-4 py-2 transition-all duration-200 hover:scale-110 group ${
+                    isActive('/api-keys')
+                      ? 'text-foreground font-black'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span className="relative z-10 transition-colors duration-300 group-hover:text-gray-800">[ API KEYS ]</span>
+                  <div className="absolute inset-x-2 top-1 bottom-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -z-0 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
+                </Link>
               </div>
 
               <div className="flex items-center space-x-4">

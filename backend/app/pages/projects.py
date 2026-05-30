@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -20,7 +21,12 @@ from ..functions.accounts import (
     get_project_limit,
     get_usage,
 )
-from ..functions.api_keys import generate_api_key, hash_api_key
+from ..functions.api_keys import (
+    authenticate_management_api_key,
+    create_project_api_key,
+    expires_at_from_days,
+    record_api_key_audit_event,
+)
 from ..middleware.auth import get_current_user
 from ..services.vector_store import vector_store_registry
 
@@ -115,20 +121,113 @@ class ProjectCreateRequest(BaseModel):
 
 class ProjectCreateResponse(BaseModel):
     project: ProjectSummary
-    ingest_api_key: str
+    api_key: str
+    api_key_prefix: str
+    authorization_header: str
 
 
 class ProjectRotateKeyRequest(BaseModel):
     project_id: str
+    name: Optional[str] = None
+    expires_in_days: Optional[int] = Field(default=None, ge=1, le=3660)
 
 
 class ProjectApiKeyResponse(BaseModel):
     project_id: str
-    ingest_api_key: str
+    api_key: str
+    api_key_prefix: str
+    authorization_header: str
+
+
+class ProjectManagementCreateRequest(ProjectCreateRequest):
+    api_key_name: Optional[str] = Field(default="Agent project key", max_length=120)
+    api_key_expires_in_days: Optional[int] = Field(default=None, ge=1, le=3660)
+
+
+class ProjectManagementCreateResponse(ProjectCreateResponse):
+    pass
+
+
+class ProjectManagementListResponse(BaseModel):
+    projects: List[ProjectSummary]
+
+
+class ProjectCreateApiKeyRequest(BaseModel):
+    name: str = Field(default="Agent project key", min_length=1, max_length=120)
+    expires_in_days: Optional[int] = Field(default=None, ge=1, le=3660)
 
 
 def _vector_table_name(project_id: str) -> str:
     return f"vespa_proj_{project_id}"
+
+
+def _project_summary(project: Project) -> ProjectSummary:
+    return ProjectSummary(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        slug=project.slug,
+        embedding_provider=project.embedding_provider,
+        embedding_model=project.embedding_model,
+        embedding_model_repo=project.embedding_model_repo,
+        embedding_model_file=project.embedding_model_file,
+        embedding_dim=project.embedding_dim,
+        hybrid_weight_vector=project.hybrid_weight_vector,
+        hybrid_weight_text=project.hybrid_weight_text,
+        top_k_default=project.top_k_default,
+        vector_search_k=project.vector_search_k,
+        vector_count=project.vector_count,
+        vector_store_path=project.vector_store_path,
+    )
+
+
+def _create_project(
+    db: Session,
+    *,
+    user,
+    payload: ProjectCreateRequest,
+    api_key_name: str = "Default API key",
+    api_key_expires_at: datetime | None = None,
+) -> tuple[Project, str, str]:
+    name = payload.name.strip()
+    slug = _build_unique_slug(db, user.id, _slugify(name))
+
+    embedding_provider = payload.embedding_provider or "remote-http"
+    embedding_model = payload.embedding_model or settings.rag_embedding_model
+    embedding_model_repo = payload.embedding_model_repo
+    embedding_model_file = payload.embedding_model_file
+    embedding_dim = payload.embedding_dim or settings.rag_embed_dim
+
+    project = Project(
+        user_id=user.id,
+        name=name,
+        description=payload.description,
+        slug=slug,
+        embedding_provider=embedding_provider,
+        embedding_model=embedding_model,
+        embedding_model_repo=embedding_model_repo,
+        embedding_model_file=embedding_model_file,
+        embedding_dim=embedding_dim,
+        hybrid_weight_vector=payload.hybrid_weight_vector,
+        hybrid_weight_text=payload.hybrid_weight_text,
+        top_k_default=payload.top_k_default,
+        vector_search_k=payload.vector_search_k,
+        vector_store_path=f"pending_{slug}",
+    )
+    db.add(project)
+    db.flush()
+
+    project.vector_store_path = _vector_table_name(project.id)
+    db.add(project)
+    key, plain_key = create_project_api_key(
+        db,
+        project=project,
+        name=api_key_name,
+        expires_at=api_key_expires_at,
+    )
+    db.commit()
+    db.refresh(project)
+    return project, plain_key, key.prefix
 
 
 @router.get("/onload", response_model=ProjectListResponse)
@@ -152,26 +251,7 @@ def projects_onload(
     project_limit = get_project_limit(plan) if plan else None
 
     return ProjectListResponse(
-        projects=[
-            ProjectSummary(
-                id=project.id,
-                name=project.name,
-                description=project.description,
-                slug=project.slug,
-                embedding_provider=project.embedding_provider,
-                embedding_model=project.embedding_model,
-                embedding_model_repo=project.embedding_model_repo,
-                embedding_model_file=project.embedding_model_file,
-                embedding_dim=project.embedding_dim,
-                hybrid_weight_vector=project.hybrid_weight_vector,
-                hybrid_weight_text=project.hybrid_weight_text,
-                top_k_default=project.top_k_default,
-                vector_search_k=project.vector_search_k,
-                vector_count=project.vector_count,
-                vector_store_path=project.vector_store_path,
-            )
-            for project in projects
-        ],
+        projects=[_project_summary(project) for project in projects],
         usage=UsageInfo(
             total_queries=usage.total_queries,
             total_ingest_requests=usage.total_ingest_requests,
@@ -203,62 +283,19 @@ def create_project(
 
     ensure_project_capacity(db, user=user, plan=plan)
 
-    name = payload.name.strip()
-    slug = _build_unique_slug(db, user.id, _slugify(name))
-
-    embedding_provider = payload.embedding_provider or "remote-http"
-    embedding_model = payload.embedding_model or settings.rag_embedding_model
-    embedding_model_repo = payload.embedding_model_repo
-    embedding_model_file = payload.embedding_model_file
-    embedding_dim = payload.embedding_dim or settings.rag_embed_dim
-
-    ingest_key_plain = generate_api_key(prefix="proj")
-    ingest_key_hash = hash_api_key(ingest_key_plain)
-
-    project = Project(
-        user_id=user.id,
-        name=name,
-        description=payload.description,
-        slug=slug,
-        embedding_provider=embedding_provider,
-        embedding_model=embedding_model,
-        embedding_model_repo=embedding_model_repo,
-        embedding_model_file=embedding_model_file,
-        embedding_dim=embedding_dim,
-        hybrid_weight_vector=payload.hybrid_weight_vector,
-        hybrid_weight_text=payload.hybrid_weight_text,
-        top_k_default=payload.top_k_default,
-        vector_search_k=payload.vector_search_k,
-        vector_store_path=f"pending_{slug}",
-        ingest_api_key_hash=ingest_key_hash,
-    )
-    db.add(project)
-    db.flush()
-
-    project.vector_store_path = _vector_table_name(project.id)
-    db.add(project)
-    db.commit()
-    db.refresh(project)
-
-    project_summary = ProjectSummary(
-        id=project.id,
-        name=project.name,
-        description=project.description,
-        slug=project.slug,
-        embedding_provider=project.embedding_provider,
-        embedding_model=project.embedding_model,
-        embedding_model_repo=project.embedding_model_repo,
-        embedding_model_file=project.embedding_model_file,
-        embedding_dim=project.embedding_dim,
-        hybrid_weight_vector=project.hybrid_weight_vector,
-        hybrid_weight_text=project.hybrid_weight_text,
-        top_k_default=project.top_k_default,
-        vector_search_k=project.vector_search_k,
-        vector_count=project.vector_count,
-        vector_store_path=project.vector_store_path,
+    project, api_key, api_key_prefix = _create_project(
+        db,
+        user=user,
+        payload=payload,
+        api_key_name="Dashboard project key",
     )
 
-    return ProjectCreateResponse(project=project_summary, ingest_api_key=ingest_key_plain)
+    return ProjectCreateResponse(
+        project=_project_summary(project),
+        api_key=api_key,
+        api_key_prefix=api_key_prefix,
+        authorization_header=f"Bearer {api_key}",
+    )
 
 
 @router.post("/rotate-api-key", response_model=ProjectApiKeyResponse)
@@ -277,14 +314,154 @@ def rotate_project_api_key(
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    ingest_key_plain = generate_api_key(prefix="proj")
-    project.ingest_api_key_hash = hash_api_key(ingest_key_plain)
+    for existing_key in project.api_keys:
+        if not existing_key.revoked:
+            existing_key.revoked = True
+            existing_key.revoked_at = datetime.utcnow()
+            db.add(existing_key)
 
-    db.add(project)
+    key, plain_key = create_project_api_key(
+        db,
+        project=project,
+        name=payload.name or "Dashboard project key",
+        expires_at=expires_at_from_days(payload.expires_in_days),
+    )
     db.commit()
     db.refresh(project)
 
-    return ProjectApiKeyResponse(project_id=project.id, ingest_api_key=ingest_key_plain)
+    return ProjectApiKeyResponse(
+        project_id=project.id,
+        api_key=plain_key,
+        api_key_prefix=key.prefix,
+        authorization_header=f"Bearer {plain_key}",
+    )
+
+
+@router.get("", response_model=ProjectManagementListResponse)
+def list_projects_with_management_key(
+    request: Request,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    user, _api_key = authenticate_management_api_key(
+        db,
+        authorization=authorization,
+        request=request,
+    )
+    projects = (
+        db.query(Project)
+        .filter(Project.user_id == user.id, Project.active == True)
+        .order_by(Project.created_at.desc())
+        .all()
+    )
+    db.commit()
+    return ProjectManagementListResponse(projects=[_project_summary(project) for project in projects])
+
+
+@router.post("", response_model=ProjectManagementCreateResponse, status_code=status.HTTP_201_CREATED)
+def create_project_with_management_key(
+    payload: ProjectManagementCreateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    user, _api_key = authenticate_management_api_key(
+        db,
+        authorization=authorization,
+        request=request,
+    )
+    user, plan = get_user_and_plan(db, user_id=user.id)
+    ensure_project_capacity(db, user=user, plan=plan)
+    project, api_key, api_key_prefix = _create_project(
+        db,
+        user=user,
+        payload=payload,
+        api_key_name=payload.api_key_name or "Agent project key",
+        api_key_expires_at=expires_at_from_days(payload.api_key_expires_in_days),
+    )
+    record_api_key_audit_event(
+        db,
+        user_id=user.id,
+        key_type="management",
+        key_prefix=_api_key.prefix,
+        action="create_project",
+        resource_type="project",
+        resource_id=project.id,
+        request=request,
+    )
+    record_api_key_audit_event(
+        db,
+        user_id=user.id,
+        key_type="project",
+        key_prefix=api_key_prefix,
+        action="create",
+        resource_type="project",
+        resource_id=project.id,
+        request=request,
+    )
+    db.commit()
+    return ProjectManagementCreateResponse(
+        project=_project_summary(project),
+        api_key=api_key,
+        api_key_prefix=api_key_prefix,
+        authorization_header=f"Bearer {api_key}",
+    )
+
+
+@router.post("/{project_id}/api-keys", response_model=ProjectApiKeyResponse, status_code=status.HTTP_201_CREATED)
+def create_project_api_key_with_management_key(
+    project_id: str,
+    payload: ProjectCreateApiKeyRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    user, _api_key = authenticate_management_api_key(
+        db,
+        authorization=authorization,
+        request=request,
+    )
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.user_id == user.id, Project.active == True)
+        .first()
+    )
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    key, plain_key = create_project_api_key(
+        db,
+        project=project,
+        name=payload.name,
+        expires_at=expires_at_from_days(payload.expires_in_days),
+    )
+    record_api_key_audit_event(
+        db,
+        user_id=user.id,
+        key_type="management",
+        key_prefix=_api_key.prefix,
+        action="create_project_api_key",
+        resource_type="project",
+        resource_id=project.id,
+        request=request,
+    )
+    record_api_key_audit_event(
+        db,
+        user_id=user.id,
+        key_type="project",
+        key_prefix=key.prefix,
+        action="create",
+        resource_type="project",
+        resource_id=project.id,
+        request=request,
+    )
+    db.commit()
+    return ProjectApiKeyResponse(
+        project_id=project.id,
+        api_key=plain_key,
+        api_key_prefix=key.prefix,
+        authorization_header=f"Bearer {plain_key}",
+    )
 
 
 class ProjectDeleteRequest(BaseModel):

@@ -209,6 +209,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Projects With Management Key */
+        get: operations["list_projects_with_management_key_api_projects_get"];
+        put?: never;
+        /** Create Project With Management Key */
+        post: operations["create_project_with_management_key_api_projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Project Api Key With Management Key */
+        post: operations["create_project_api_key_with_management_key_api_projects__project_id__api_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/delete": {
         parameters: {
             query?: never;
@@ -220,6 +255,57 @@ export interface paths {
         put?: never;
         /** Delete Project */
         post: operations["delete_project_api_projects_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/management-keys/onload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Management Keys Onload */
+        get: operations["management_keys_onload_api_management_keys_onload_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/management-keys/onsubmit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Management Key */
+        post: operations["create_management_key_api_management_keys_onsubmit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/management-keys/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Management Key */
+        post: operations["revoke_management_key_api_management_keys_revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -255,6 +341,23 @@ export interface paths {
         post?: never;
         /** Delete Item */
         delete: operations["delete_item_api_rag_projects__project_id__items__item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rag/projects/{project_id}/auth/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check Project Api Key */
+        get: operations["check_project_api_key_api_rag_projects__project_id__auth_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -605,6 +708,51 @@ export interface components {
             success: boolean;
             user: components["schemas"]["UserResponse"];
         };
+        /** ManagementApiKeyCreateRequest */
+        ManagementApiKeyCreateRequest: {
+            /** Name */
+            name: string;
+            /** Expires In Days */
+            expires_in_days?: number | null;
+        };
+        /** ManagementApiKeyCreateResponse */
+        ManagementApiKeyCreateResponse: {
+            key: components["schemas"]["ManagementApiKeySummary"];
+            /** Api Key */
+            api_key: string;
+            /** Authorization Header */
+            authorization_header: string;
+        };
+        /** ManagementApiKeyRevokeRequest */
+        ManagementApiKeyRevokeRequest: {
+            /** Key Id */
+            key_id: number;
+        };
+        /** ManagementApiKeySummary */
+        ManagementApiKeySummary: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Prefix */
+            prefix: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Revoked */
+            revoked: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ManagementKeysOnloadResponse */
+        ManagementKeysOnloadResponse: {
+            /** Keys */
+            keys: components["schemas"]["ManagementApiKeySummary"][];
+        };
         /** PlanInfo */
         PlanInfo: {
             /** Slug */
@@ -626,8 +774,22 @@ export interface components {
         ProjectApiKeyResponse: {
             /** Project Id */
             project_id: string;
-            /** Ingest Api Key */
-            ingest_api_key: string;
+            /** Api Key */
+            api_key: string;
+            /** Api Key Prefix */
+            api_key_prefix: string;
+            /** Authorization Header */
+            authorization_header: string;
+        };
+        /** ProjectCreateApiKeyRequest */
+        ProjectCreateApiKeyRequest: {
+            /**
+             * Name
+             * @default Agent project key
+             */
+            name: string;
+            /** Expires In Days */
+            expires_in_days?: number | null;
         };
         /** ProjectCreateRequest */
         ProjectCreateRequest: {
@@ -672,8 +834,12 @@ export interface components {
         /** ProjectCreateResponse */
         ProjectCreateResponse: {
             project: components["schemas"]["ProjectSummary"];
-            /** Ingest Api Key */
-            ingest_api_key: string;
+            /** Api Key */
+            api_key: string;
+            /** Api Key Prefix */
+            api_key_prefix: string;
+            /** Authorization Header */
+            authorization_header: string;
         };
         /** ProjectDeleteRequest */
         ProjectDeleteRequest: {
@@ -689,10 +855,76 @@ export interface components {
             /** Needs Subscription */
             needs_subscription: boolean;
         };
+        /** ProjectManagementCreateRequest */
+        ProjectManagementCreateRequest: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Embedding Provider
+             * @default remote-http
+             */
+            embedding_provider: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /** Embedding Model Repo */
+            embedding_model_repo?: string | null;
+            /** Embedding Model File */
+            embedding_model_file?: string | null;
+            /** Embedding Dim */
+            embedding_dim?: number | null;
+            /**
+             * Hybrid Weight Vector
+             * @default 0.5
+             */
+            hybrid_weight_vector: number;
+            /**
+             * Hybrid Weight Text
+             * @default 0.5
+             */
+            hybrid_weight_text: number;
+            /**
+             * Top K Default
+             * @default 5
+             */
+            top_k_default: number;
+            /**
+             * Vector Search K
+             * @default 20
+             */
+            vector_search_k: number;
+            /**
+             * Api Key Name
+             * @default Agent project key
+             */
+            api_key_name: string | null;
+            /** Api Key Expires In Days */
+            api_key_expires_in_days?: number | null;
+        };
+        /** ProjectManagementCreateResponse */
+        ProjectManagementCreateResponse: {
+            project: components["schemas"]["ProjectSummary"];
+            /** Api Key */
+            api_key: string;
+            /** Api Key Prefix */
+            api_key_prefix: string;
+            /** Authorization Header */
+            authorization_header: string;
+        };
+        /** ProjectManagementListResponse */
+        ProjectManagementListResponse: {
+            /** Projects */
+            projects: components["schemas"]["ProjectSummary"][];
+        };
         /** ProjectRotateKeyRequest */
         ProjectRotateKeyRequest: {
             /** Project Id */
             project_id: string;
+            /** Name */
+            name?: string | null;
+            /** Expires In Days */
+            expires_in_days?: number | null;
         };
         /** ProjectSummary */
         ProjectSummary: {
@@ -1196,6 +1428,109 @@ export interface operations {
             };
         };
     };
+    list_projects_with_management_key_api_projects_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectManagementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_with_management_key_api_projects_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectManagementCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectManagementCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_api_key_with_management_key_api_projects__project_id__api_keys_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCreateApiKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectApiKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_project_api_projects_delete_post: {
         parameters: {
             query?: never;
@@ -1229,11 +1564,97 @@ export interface operations {
             };
         };
     };
+    management_keys_onload_api_management_keys_onload_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementKeysOnloadResponse"];
+                };
+            };
+        };
+    };
+    create_management_key_api_management_keys_onsubmit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagementApiKeyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementApiKeyCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_management_key_api_management_keys_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagementApiKeyRevokeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ingest_item_api_rag_projects__project_id__items_post: {
         parameters: {
             query?: never;
             header?: {
-                "X-Project-Key"?: string | null;
+                Authorization?: string | null;
             };
             path: {
                 project_id: string;
@@ -1270,7 +1691,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "X-Project-Key"?: string | null;
+                Authorization?: string | null;
             };
             path: {
                 project_id: string;
@@ -1298,11 +1719,44 @@ export interface operations {
             };
         };
     };
+    check_project_api_key_api_rag_projects__project_id__auth_check_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     query_project_api_rag_projects__project_id__query_post: {
         parameters: {
             query?: never;
             header?: {
-                "X-Project-Key"?: string | null;
+                Authorization?: string | null;
             };
             path: {
                 project_id: string;

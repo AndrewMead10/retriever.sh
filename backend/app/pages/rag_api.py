@@ -19,7 +19,7 @@ else:
 from ..database import get_db
 from ..database.models import User, UserSubscription, Plan, Project, ProjectDocument
 from ..functions.accounts import decrement_vector_usage, ensure_vector_capacity, increment_usage
-from ..functions.api_keys import verify_api_key
+from ..functions.api_keys import authenticate_project_api_key
 from ..functions.rate_limits import consume_rate_limit
 from ..schemas.rag import (
     ContentBlock,
@@ -57,13 +57,6 @@ def _load_project(session: Session, project_id: str) -> Project:
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
     return project
-
-
-def _verify_project_key(project: Project, api_key: str | None) -> None:
-    if not api_key:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Project API key required")
-    if not verify_api_key(project.ingest_api_key_hash, api_key):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid project API key")
 
 
 def _get_plan(project: Project) -> Plan:
@@ -182,13 +175,13 @@ async def ingest_item(
     project_id: str = Path(...),
     payload: ItemIn | None = None,
     db: Session = Depends(get_db),
-    x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     if payload is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Missing payload")
 
     project = _load_project(db, project_id)
-    _verify_project_key(project, x_project_key)
+    authenticate_project_api_key(db, project=project, authorization=authorization)
 
     plan = _get_plan(project)
     user = project.user
@@ -251,10 +244,10 @@ async def delete_item(
     project_id: str = Path(...),
     item_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     project = _load_project(db, project_id)
-    _verify_project_key(project, x_project_key)
+    authenticate_project_api_key(db, project=project, authorization=authorization)
 
     user = project.user
     if user is None:
@@ -285,6 +278,23 @@ async def delete_item(
     return None
 
 
+@router.get("/projects/{project_id}/auth/check")
+def check_project_api_key(
+    project_id: str = Path(...),
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    project = _load_project(db, project_id)
+    api_key = authenticate_project_api_key(db, project=project, authorization=authorization)
+    db.commit()
+    return {
+        "detail": "Project API key is valid",
+        "project_id": project.id,
+        "project_name": project.name,
+        "api_key_prefix": api_key.prefix,
+    }
+
+
 @router.post(
     "/projects/{project_id}/query",
     response_model=QueryResponse,
@@ -293,7 +303,7 @@ async def query_project(
     project_id: str = Path(...),
     payload: QueryRequest | None = None,
     db: Session = Depends(get_db),
-    x_project_key: Optional[str] = Header(None, alias="X-Project-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     if payload is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Missing payload")
@@ -309,7 +319,7 @@ async def query_project(
         )
 
     project = _load_project(db, project_id)
-    _verify_project_key(project, x_project_key)
+    authenticate_project_api_key(db, project=project, authorization=authorization)
 
     user = project.user
     if user is None:

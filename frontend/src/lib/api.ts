@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   LoginData,
+  ManagementApiKeyCreatePayload,
+  ManagementApiKeyCreateResponse,
+  ManagementKeysOnload,
   ProjectCreatePayload,
   ProjectCreateResponse,
   ProjectRotateKeyResponse,
@@ -179,6 +182,40 @@ const apiClient = {
     return response.json()
   },
 
+  async getManagementKeys(): Promise<ManagementKeysOnload> {
+    const response = await fetchWithAuth('/api/management-keys/onload')
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.detail || error.message || 'Failed to load management API keys')
+    }
+    return response.json()
+  },
+
+  async createManagementKey(payload: ManagementApiKeyCreatePayload): Promise<ManagementApiKeyCreateResponse> {
+    const response = await fetchWithAuth('/api/management-keys/onsubmit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.detail || error.message || 'Failed to create management API key')
+    }
+    return response.json()
+  },
+
+  async revokeManagementKey(keyId: number): Promise<void> {
+    const response = await fetchWithAuth('/api/management-keys/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key_id: keyId }),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.detail || error.message || 'Failed to revoke management API key')
+    }
+  },
+
   async createCheckout(planSlug: string): Promise<string> {
     const response = await fetchWithAuth(`/api/billing/checkout?plan_slug=${planSlug}`, { method: 'POST' })
     if (!response.ok) {
@@ -209,6 +246,11 @@ export const api = {
     create: apiClient.createProject,
     delete: apiClient.deleteProject,
     rotateKey: apiClient.rotateProjectApiKey,
+  },
+  managementKeys: {
+    list: apiClient.getManagementKeys,
+    create: apiClient.createManagementKey,
+    revoke: apiClient.revokeManagementKey,
   },
   billing: {
     checkout: apiClient.createCheckout,
@@ -326,6 +368,33 @@ export function useRotateProjectKey() {
     mutationFn: (projectId: string) => apiClient.rotateProjectApiKey(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
+export function useManagementKeys() {
+  return useQuery({
+    queryKey: ['managementKeys'],
+    queryFn: apiClient.getManagementKeys,
+  })
+}
+
+export function useCreateManagementKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: apiClient.createManagementKey,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['managementKeys'] })
+    },
+  })
+}
+
+export function useRevokeManagementKey() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (keyId: number) => apiClient.revokeManagementKey(keyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['managementKeys'] })
     },
   })
 }

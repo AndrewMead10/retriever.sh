@@ -109,7 +109,7 @@ def ingest_item(project_id: str, api_key: str, payload: dict):
     response = requests.post(
         f"https://retriever.sh/api/rag/projects/{project_id}/items",
         headers={
-            "X-Project-Key": api_key,
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         },
         json=payload,
@@ -130,7 +130,7 @@ item = {
     },
     "external_id": "launch-brief-2026"
 }
-result = ingest_item("your-project-uuid", "proj_...your_key...", item)
+result = ingest_item("your-project-uuid", "retr_proj_...your_key...", item)
 print(f"Item ID: {result['id']}")`,
       javascript: `async function ingestItem(projectId, apiKey, payload) {
   // Ingest a multimodal item into a project
@@ -139,7 +139,7 @@ print(f"Item ID: {result['id']}")`,
     {
       method: 'POST',
       headers: {
-        'X-Project-Key': apiKey,
+        'Authorization': \`Bearer \${apiKey}\`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -164,11 +164,11 @@ const item = {
   },
   external_id: 'launch-brief-2026'
 };
-const result = await ingestItem('your-project-uuid', 'proj_...your_key...', item);
+const result = await ingestItem('your-project-uuid', 'retr_proj_...your_key...', item);
 console.log('Item ID:', result.id);`,
       curl: `# Ingest a multimodal item into a project
 curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/items \\
-  -H "X-Project-Key: proj_...your_key..." \\
+  -H "Authorization: Bearer retr_proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
     "title": "Product launch brief",
@@ -191,7 +191,7 @@ def query_project(project_id: str, api_key: str, input_blocks: list[dict], top_k
     response = requests.post(
         f"https://retriever.sh/api/rag/projects/{project_id}/query",
         headers={
-            "X-Project-Key": api_key,
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         },
         json={"input": input_blocks, "top_k": top_k},
@@ -202,7 +202,7 @@ def query_project(project_id: str, api_key: str, input_blocks: list[dict], top_k
 # Usage
 results = query_project(
     "your-project-uuid",
-    "proj_...your_key...",
+    "retr_proj_...your_key...",
     [{"type": "text", "text": "Find the launch brief with the product image"}],
     top_k=5,
 )
@@ -215,7 +215,7 @@ for result in results["results"]:
     {
       method: 'POST',
       headers: {
-        'X-Project-Key': apiKey,
+        'Authorization': \`Bearer \${apiKey}\`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -228,7 +228,7 @@ for result in results["results"]:
 }
 
 // Usage
-const results = await queryProject('your-project-uuid', 'proj_...your_key...', {
+const results = await queryProject('your-project-uuid', 'retr_proj_...your_key...', {
   input: [
     { type: 'text', text: 'Find the launch brief with this image' },
     { type: 'image_url', url: 'https://example.com/reference.png' }
@@ -241,7 +241,7 @@ results.results.forEach(result => {
 });`,
       curl: `# Query a project using text, image, audio, video, or PDF inputs
 curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/query \\
-  -H "X-Project-Key: proj_...your_key..." \\
+  -H "Authorization: Bearer retr_proj_...your_key..." \\
   -H "Content-Type: application/json" \\
   -d '{
     "input": [
@@ -259,20 +259,20 @@ def delete_item(project_id: str, item_id: int, api_key: str) -> None:
     """Delete an item from a project"""
     response = requests.delete(
         f"https://retriever.sh/api/rag/projects/{project_id}/items/{item_id}",
-        headers={"X-Project-Key": api_key},
+        headers={"Authorization": f"Bearer {api_key}"},
     )
     if response.status_code != 204:
         raise Exception(f"Delete failed: {response.text}")
 
 # Usage
-delete_item("your-project-uuid", 456, "proj_...your_key...")`,
+delete_item("your-project-uuid", 456, "retr_proj_...your_key...")`,
       javascript: `async function deleteItem(projectId, itemId, apiKey) {
   // Delete an item from a project
   const response = await fetch(
     \`/api/rag/projects/\${projectId}/items/\${itemId}\`,
     {
       method: 'DELETE',
-      headers: { 'X-Project-Key': apiKey }
+      headers: { 'Authorization': \`Bearer \${apiKey}\` }
     }
   );
   if (response.status !== 204) {
@@ -282,10 +282,10 @@ delete_item("your-project-uuid", 456, "proj_...your_key...")`,
 }
 
 // Usage
-await deleteItem('your-project-uuid', 456, 'proj_...your_key...');`,
+await deleteItem('your-project-uuid', 456, 'retr_proj_...your_key...');`,
       curl: `# Delete an item from a project
 curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456 \\
-  -H "X-Project-Key: proj_...your_key..."`,
+  -H "Authorization: Bearer retr_proj_...your_key..."`,
     },
   }
 
@@ -375,14 +375,14 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                 </p>
                 <div className="bg-background border border-foreground p-4 font-mono text-sm">
                   <div className="text-muted-foreground mb-2"># Example API key format</div>
-                  <div>proj_51f8a9b2c3e4d5f6a7b8c9d0e1f2a3b4</div>
+                  <div>retr_proj_51f8a9b2c3e4d5f6a7b8c9d0e1f2a3b4</div>
                 </div>
               </div>
 
               <div>
                 <h3 className="text-xl font-bold mb-3">2. Add the header</h3>
                 <p className="text-muted-foreground">
-                  Send the key as <span className="font-mono">X-Project-Key</span> and pass your project ID in the URL.
+                  Send the key in the <span className="font-mono">Authorization</span> header as <span className="font-mono">Bearer &lt;api_key&gt;</span> and pass your project ID in the URL.
                   Local dev base URL: <span className="font-mono">https://retriever.sh</span>.
                 </p>
               </div>
@@ -429,7 +429,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                     <div className="text-muted-foreground text-xs">path param (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">X-Project-Key</div>
+                    <div className="font-mono mb-1">Authorization: Bearer</div>
                     <div className="text-muted-foreground text-xs">header (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
@@ -513,7 +513,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                     <div className="text-muted-foreground text-xs">path param (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">X-Project-Key</div>
+                    <div className="font-mono mb-1">Authorization: Bearer</div>
                     <div className="text-muted-foreground text-xs">header (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
@@ -614,7 +614,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                     <div className="text-muted-foreground text-xs">path param (required)</div>
                   </div>
                   <div className="bg-background border border-foreground p-3">
-                    <div className="font-mono mb-1">X-Project-Key</div>
+                    <div className="font-mono mb-1">Authorization: Bearer</div>
                     <div className="text-muted-foreground text-xs">header (required)</div>
                   </div>
                 </div>

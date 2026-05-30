@@ -80,10 +80,39 @@ export interface ProjectCreatePayload {
 
 export interface ProjectCreateResponse {
   project: ProjectSummary
-  ingest_api_key: string
+  api_key: string
+  api_key_prefix: string
+  authorization_header: string
 }
 
 export interface ProjectRotateKeyResponse {
   project_id: string
-  ingest_api_key: string
+  api_key: string
+  api_key_prefix: string
+  authorization_header: string
+}
+
+export interface ManagementApiKeySummary {
+  id: number
+  name: string
+  prefix: string
+  last_used_at?: string | null
+  expires_at?: string | null
+  revoked: boolean
+  created_at: string
+}
+
+export interface ManagementKeysOnload {
+  keys: ManagementApiKeySummary[]
+}
+
+export interface ManagementApiKeyCreatePayload {
+  name: string
+  expires_in_days?: number | null
+}
+
+export interface ManagementApiKeyCreateResponse {
+  key: ManagementApiKeySummary
+  api_key: string
+  authorization_header: string
 }

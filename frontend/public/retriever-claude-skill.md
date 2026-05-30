@@ -10,7 +10,7 @@ retriever.sh exposes project-scoped multimodal retrieval APIs:
 
 All operations require:
 - `project_id` in the URL path
-- `X-Project-Key` header for that project
+- `Authorization: Bearer <api_key>` header for that project
 
 Project IDs and keys are available in the retriever.sh Projects page.
 
@@ -20,7 +20,7 @@ Project IDs and keys are available in the retriever.sh Projects page.
 
 ```bash
 RETRIEVER_PROJECT_ID=your-project-uuid
-RETRIEVER_PROJECT_KEY=proj_...your_key...
+RETRIEVER_PROJECT_KEY=retr_proj_...your_key...
 ```
 
 ### API Base URL
@@ -53,7 +53,7 @@ There is no separate file-upload endpoint.
 
 **Headers:**
 ```text
-X-Project-Key: {RETRIEVER_PROJECT_KEY}
+Authorization: Bearer {RETRIEVER_PROJECT_KEY}
 Content-Type: application/json
 ```
 
@@ -85,7 +85,7 @@ Content-Type: application/json
 
 **Headers:**
 ```text
-X-Project-Key: {RETRIEVER_PROJECT_KEY}
+Authorization: Bearer {RETRIEVER_PROJECT_KEY}
 Content-Type: application/json
 ```
 
@@ -113,7 +113,7 @@ Content-Type: application/json
 
 **Headers:**
 ```text
-X-Project-Key: {RETRIEVER_PROJECT_KEY}
+Authorization: Bearer {RETRIEVER_PROJECT_KEY}
 ```
 
 ## Minimal Python Example
@@ -127,7 +127,7 @@ project_key = os.environ["RETRIEVER_PROJECT_KEY"]
 
 results = requests.post(
     f"https://retriever.sh/api/rag/projects/{project_id}/query",
-    headers={"X-Project-Key": project_key, "Content-Type": "application/json"},
+    headers={"Authorization": f"Bearer {project_key}", "Content-Type": "application/json"},
     json={
         "input": [{"type": "text", "text": "shipping policy"}],
         "top_k": 5,
@@ -142,7 +142,7 @@ print(results.json().get("results", []))
 ## Error Handling
 
 - `400`: invalid payload
-- `401`: missing or invalid `X-Project-Key`
+- `401`: missing or invalid project API key
 - `404`: project or item not found
 - `429`: query/ingest QPS rate limit exceeded
 - `402`: plan capacity/limit reached

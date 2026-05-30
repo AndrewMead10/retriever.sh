@@ -351,6 +351,180 @@
         }
       }
     },
+    "/api/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Projects With Management Key",
+        "operationId": "list_projects_with_management_key_api_projects_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectManagementListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project With Management Key",
+        "operationId": "create_project_with_management_key_api_projects_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectManagementCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectManagementCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/api-keys": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project Api Key With Management Key",
+        "operationId": "create_project_api_key_with_management_key_api_projects__project_id__api_keys_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreateApiKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/delete": {
       "post": {
         "tags": [
@@ -363,6 +537,107 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProjectDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/management-keys/onload": {
+      "get": {
+        "tags": [
+          "management-keys"
+        ],
+        "summary": "Management Keys Onload",
+        "operationId": "management_keys_onload_api_management_keys_onload_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementKeysOnloadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/management-keys/onsubmit": {
+      "post": {
+        "tags": [
+          "management-keys"
+        ],
+        "summary": "Create Management Key",
+        "operationId": "create_management_key_api_management_keys_onsubmit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementApiKeyCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementApiKeyCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/management-keys/revoke": {
+      "post": {
+        "tags": [
+          "management-keys"
+        ],
+        "summary": "Revoke Management Key",
+        "operationId": "revoke_management_key_api_management_keys_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementApiKeyRevokeRequest"
               }
             }
           },
@@ -408,7 +683,7 @@
             }
           },
           {
-            "name": "X-Project-Key",
+            "name": "Authorization",
             "in": "header",
             "required": false,
             "schema": {
@@ -420,7 +695,7 @@
                   "type": "null"
                 }
               ],
-              "title": "X-Project-Key"
+              "title": "Authorization"
             }
           }
         ],
@@ -493,7 +768,7 @@
             }
           },
           {
-            "name": "X-Project-Key",
+            "name": "Authorization",
             "in": "header",
             "required": false,
             "schema": {
@@ -505,13 +780,69 @@
                   "type": "null"
                 }
               ],
-              "title": "X-Project-Key"
+              "title": "Authorization"
             }
           }
         ],
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/projects/{project_id}/auth/check": {
+      "get": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Check Project Api Key",
+        "operationId": "check_project_api_key_api_rag_projects__project_id__auth_check_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -544,7 +875,7 @@
             }
           },
           {
-            "name": "X-Project-Key",
+            "name": "Authorization",
             "in": "header",
             "required": false,
             "schema": {
@@ -556,7 +887,7 @@
                   "type": "null"
                 }
               ],
-              "title": "X-Project-Key"
+              "title": "Authorization"
             }
           }
         ],
@@ -1412,6 +1743,143 @@
         ],
         "title": "LoginResponse"
       },
+      "ManagementApiKeyCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3660.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ManagementApiKeyCreateRequest"
+      },
+      "ManagementApiKeyCreateResponse": {
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/ManagementApiKeySummary"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "authorization_header": {
+            "type": "string",
+            "title": "Authorization Header"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "api_key",
+          "authorization_header"
+        ],
+        "title": "ManagementApiKeyCreateResponse"
+      },
+      "ManagementApiKeyRevokeRequest": {
+        "properties": {
+          "key_id": {
+            "type": "integer",
+            "title": "Key Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key_id"
+        ],
+        "title": "ManagementApiKeyRevokeRequest"
+      },
+      "ManagementApiKeySummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "revoked": {
+            "type": "boolean",
+            "title": "Revoked"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "revoked",
+          "created_at"
+        ],
+        "title": "ManagementApiKeySummary"
+      },
+      "ManagementKeysOnloadResponse": {
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/ManagementApiKeySummary"
+            },
+            "type": "array",
+            "title": "Keys"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keys"
+        ],
+        "title": "ManagementKeysOnloadResponse"
+      },
       "PlanInfo": {
         "properties": {
           "slug": {
@@ -1473,17 +1941,53 @@
             "type": "string",
             "title": "Project Id"
           },
-          "ingest_api_key": {
+          "api_key": {
             "type": "string",
-            "title": "Ingest Api Key"
+            "title": "Api Key"
+          },
+          "api_key_prefix": {
+            "type": "string",
+            "title": "Api Key Prefix"
+          },
+          "authorization_header": {
+            "type": "string",
+            "title": "Authorization Header"
           }
         },
         "type": "object",
         "required": [
           "project_id",
-          "ingest_api_key"
+          "api_key",
+          "api_key_prefix",
+          "authorization_header"
         ],
         "title": "ProjectApiKeyResponse"
+      },
+      "ProjectCreateApiKeyRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "default": "Agent project key"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3660.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days"
+          }
+        },
+        "type": "object",
+        "title": "ProjectCreateApiKeyRequest"
       },
       "ProjectCreateRequest": {
         "properties": {
@@ -1593,15 +2097,25 @@
           "project": {
             "$ref": "#/components/schemas/ProjectSummary"
           },
-          "ingest_api_key": {
+          "api_key": {
             "type": "string",
-            "title": "Ingest Api Key"
+            "title": "Api Key"
+          },
+          "api_key_prefix": {
+            "type": "string",
+            "title": "Api Key Prefix"
+          },
+          "authorization_header": {
+            "type": "string",
+            "title": "Authorization Header"
           }
         },
         "type": "object",
         "required": [
           "project",
-          "ingest_api_key"
+          "api_key",
+          "api_key_prefix",
+          "authorization_header"
         ],
         "title": "ProjectCreateResponse"
       },
@@ -1654,11 +2168,207 @@
         ],
         "title": "ProjectListResponse"
       },
+      "ProjectManagementCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "embedding_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Provider",
+            "default": "remote-http"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "embedding_model_repo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model Repo"
+          },
+          "embedding_model_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model File"
+          },
+          "embedding_dim": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Dim"
+          },
+          "hybrid_weight_vector": {
+            "type": "number",
+            "title": "Hybrid Weight Vector",
+            "default": 0.5
+          },
+          "hybrid_weight_text": {
+            "type": "number",
+            "title": "Hybrid Weight Text",
+            "default": 0.5
+          },
+          "top_k_default": {
+            "type": "integer",
+            "title": "Top K Default",
+            "default": 5
+          },
+          "vector_search_k": {
+            "type": "integer",
+            "title": "Vector Search K",
+            "default": 20
+          },
+          "api_key_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Name",
+            "default": "Agent project key"
+          },
+          "api_key_expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3660.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Expires In Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProjectManagementCreateRequest"
+      },
+      "ProjectManagementCreateResponse": {
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/ProjectSummary"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "api_key_prefix": {
+            "type": "string",
+            "title": "Api Key Prefix"
+          },
+          "authorization_header": {
+            "type": "string",
+            "title": "Authorization Header"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project",
+          "api_key",
+          "api_key_prefix",
+          "authorization_header"
+        ],
+        "title": "ProjectManagementCreateResponse"
+      },
+      "ProjectManagementListResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSummary"
+            },
+            "type": "array",
+            "title": "Projects"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects"
+        ],
+        "title": "ProjectManagementListResponse"
+      },
       "ProjectRotateKeyRequest": {
         "properties": {
           "project_id": {
             "type": "string",
             "title": "Project Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3660.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days"
           }
         },
         "type": "object",

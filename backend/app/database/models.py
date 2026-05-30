@@ -26,6 +26,7 @@ class User(Base, AuditMixin):
 
     roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    management_api_keys = relationship("ManagementApiKey", back_populates="user", cascade="all, delete-orphan")
     subscription = relationship("UserSubscription", back_populates="user", uselist=False)
     usage = relationship("UserUsage", back_populates="user", uselist=False)
 
@@ -143,7 +144,6 @@ class Project(Base, AuditMixin):
     vector_search_k = Column(Integer, nullable=False, default=50)
     vector_store_path = Column(String, nullable=False)
     vector_count = Column(Integer, nullable=False, default=0)
-    ingest_api_key_hash = Column(String, nullable=False)
     last_ingest_at = Column(DateTime, nullable=True)
     active = Column(Boolean, nullable=False, default=True)
 
@@ -161,9 +161,42 @@ class ProjectApiKey(Base, AuditMixin):
     prefix = Column(String, nullable=False)
     hashed_key = Column(String, nullable=False)
     last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     revoked = Column(Boolean, nullable=False, default=False)
+    revoked_at = Column(DateTime, nullable=True)
 
     project = relationship("Project", back_populates="api_keys")
+
+
+class ManagementApiKey(Base, AuditMixin):
+    __tablename__ = "management_api_keys"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    prefix = Column(String, nullable=False)
+    hashed_key = Column(String, nullable=False, unique=True)
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    revoked = Column(Boolean, nullable=False, default=False)
+    revoked_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="management_api_keys")
+
+
+class ApiKeyAuditEvent(Base):
+    __tablename__ = "api_key_audit_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    key_type = Column(String, nullable=False)
+    key_prefix = Column(String, nullable=True)
+    action = Column(String, nullable=False)
+    resource_type = Column(String, nullable=True)
+    resource_id = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
 class ProjectDocument(Base, AuditMixin):

@@ -30,8 +30,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.database import models  # Import all models to ensure tables are created
 from app.database.models import (
     Base,
+    ManagementApiKey,
     Plan,
     Project,
+    ProjectApiKey,
     ProjectDocument,
     RateLimitBucket,
     User,
@@ -219,7 +221,6 @@ def seeded_project(session: Session):
 
     # Generate API key
     api_key = generate_api_key(prefix="test")
-    api_key_hash = hash_api_key(api_key)
 
     # Create project
     project = Project(
@@ -238,12 +239,23 @@ def seeded_project(session: Session):
         vector_search_k=20,
         vector_store_path="test_vespa_project",
         vector_count=0,
-        ingest_api_key_hash=api_key_hash,
         active=True,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
     session.add(project)
+    session.flush()
+    session.add(
+        ProjectApiKey(
+            project_id=project.id,
+            name="Test key",
+            prefix=api_key[:10],
+            hashed_key=hash_api_key(api_key),
+            revoked=False,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+    )
     session.commit()
     session.refresh(project)
 
@@ -307,7 +319,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
         response = test_client.post(
             f"/api/rag/projects/{project.id}/items",
             json=doc,
-            headers={"X-Project-Key": api_key},
+            headers={"Authorization": f"Bearer {api_key}"},
         )
         assert response.status_code == 201, f"Failed to upload document: {response.json()}"
 
@@ -337,7 +349,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     response = test_client.post(
         f"/api/rag/projects/{project.id}/query",
         json=search_query,
-        headers={"X-Project-Key": api_key},
+        headers={"Authorization": f"Bearer {api_key}"},
     )
     assert response.status_code == 200, f"Failed to query documents: {response.json()}"
 
@@ -365,7 +377,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     response2 = test_client.post(
         f"/api/rag/projects/{project.id}/query",
         json=search_query2,
-        headers={"X-Project-Key": api_key},
+        headers={"Authorization": f"Bearer {api_key}"},
     )
     assert response2.status_code == 200
     search_results2 = response2.json()
@@ -377,7 +389,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     for doc_id in uploaded_doc_ids:
         response = test_client.delete(
             f"/api/rag/projects/{project.id}/items/{doc_id}",
-            headers={"X-Project-Key": api_key},
+            headers={"Authorization": f"Bearer {api_key}"},
         )
         assert response.status_code == 204, f"Failed to delete document {doc_id}: {response.text}"
         print(f"✓ Deleted document ID: {doc_id}")
@@ -387,7 +399,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     response = test_client.post(
         f"/api/rag/projects/{project.id}/query",
         json={"input": [{"type": "text", "text": "machine learning"}], "top_k": 10},
-        headers={"X-Project-Key": api_key},
+        headers={"Authorization": f"Bearer {api_key}"},
     )
     assert response.status_code == 200
     final_results = response.json()
@@ -409,7 +421,7 @@ def test_invalid_api_key(test_client: TestClient, seeded_project):
             "title": "Test",
             "content": [{"type": "text", "text": "Test content"}],
         },
-        headers={"X-Project-Key": "invalid_key"},
+        headers={"Authorization": "Bearer invalid_key"},
     )
 
     assert response.status_code == 401
@@ -437,8 +449,63 @@ def test_nonexistent_project(test_client: TestClient):
     response = test_client.post(
         "/api/rag/projects/99999/query",
         json={"input": [{"type": "text", "text": "test"}]},
-        headers={"X-Project-Key": "test_fake_key"},
+        headers={"Authorization": "Bearer test_fake_key"},
     )
 
     assert response.status_code == 404
     assert "detail" in response.json()
+
+
+def test_management_key_can_create_project_and_project_keys(
+    test_client: TestClient,
+    session: Session,
+    seeded_project,
+):
+    user = seeded_project["user"]
+    management_key = generate_api_key(prefix="retr_mgmt")
+    session.add(
+        ManagementApiKey(
+            user_id=user.id,
+            name="Agent setup key",
+            prefix=management_key[:10],
+            hashed_key=hash_api_key(management_key),
+            revoked=False,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+
+    response = test_client.post(
+        "/api/projects",
+        headers={"Authorization": f"Bearer {management_key}"},
+        json={
+            "name": "Agent Project",
+            "description": "Created by test agent",
+            "api_key_name": "agent-runtime-key",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["project"]["name"] == "Agent Project"
+    assert payload["api_key"].startswith("retr_proj_")
+    assert payload["authorization_header"] == f"Bearer {payload['api_key']}"
+
+    project_id = payload["project"]["id"]
+    key_response = test_client.post(
+        f"/api/projects/{project_id}/api-keys",
+        headers={"Authorization": f"Bearer {management_key}"},
+        json={"name": "another-agent-key"},
+    )
+
+    assert key_response.status_code == 201, key_response.text
+    assert key_response.json()["api_key"].startswith("retr_proj_")
+
+    list_response = test_client.get(
+        "/api/projects",
+        headers={"Authorization": f"Bearer {management_key}"},
+    )
+
+    assert list_response.status_code == 200
+    assert any(project["id"] == project_id for project in list_response.json()["projects"])

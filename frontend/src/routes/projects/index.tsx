@@ -121,12 +121,12 @@ function ProjectsPage() {
     const { projectId, projectName } = apiKeyModal
     try {
       const result = await rotateProjectKey.mutateAsync(projectId)
-      await copyToClipboard(result.ingest_api_key, {
+      await copyToClipboard(result.api_key, {
         success: 'New API key copied to clipboard. Previous key is no longer valid.',
         fallback: 'New API key ready. Previous key is no longer valid.',
         label: 'API Key',
       })
-      openApiKeyReveal(result.ingest_api_key, result.project_id, projectName, 'rotate')
+      openApiKeyReveal(result.api_key, result.project_id, projectName, 'rotate')
     } catch (err: any) {
       toast.error(err?.message || 'Failed to rotate API key')
     }
@@ -153,12 +153,12 @@ function ProjectsPage() {
       const result = await createProject.mutateAsync(formState)
       setShowCreate(false)
       setFormState({ name: '', description: '' })
-      await copyToClipboard(result.ingest_api_key, {
+      await copyToClipboard(result.api_key, {
         success: 'Project created. API key copied to clipboard.',
         fallback: 'Project created. Copy the API key below.',
         label: 'API Key',
       })
-      openApiKeyReveal(result.ingest_api_key, result.project.id, result.project.name, 'create')
+      openApiKeyReveal(result.api_key, result.project.id, result.project.name, 'create')
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create project')
     }
@@ -550,6 +550,7 @@ interface ApiKeyDialogProps {
 function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId, isSubmitting }: ApiKeyDialogProps) {
   const [copied, setCopied] = useState(false)
   const [idCopied, setIdCopied] = useState(false)
+  const [snippetCopied, setSnippetCopied] = useState<string | null>(null)
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -558,6 +559,7 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
       }
       setCopied(false)
       setIdCopied(false)
+      setSnippetCopied(null)
       onClose()
     }
   }
@@ -572,6 +574,17 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
     onCopyProjectId(projectId)
     setIdCopied(true)
     setTimeout(() => setIdCopied(false), 2000)
+  }
+
+  const handleCopySnippet = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success(`${label} copied to clipboard.`)
+    } catch {
+      toast(label, { description: value })
+    }
+    setSnippetCopied(label)
+    setTimeout(() => setSnippetCopied(null), 2000)
   }
 
   const confirmState = state.open && state.mode === 'confirm' ? state : null
@@ -621,6 +634,15 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
             )}
 
             {revealState && (
+              (() => {
+                const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://retriever.sh'
+                const envSnippet = `RETRIEVER_BASE_URL=${baseUrl}
+RETRIEVER_PROJECT_ID=${revealState.projectId}
+RETRIEVER_API_KEY=${revealState.apiKey}`
+                const curlSnippet = `curl -X GET ${baseUrl}/api/rag/projects/${revealState.projectId}/auth/check \\
+  -H "Authorization: Bearer ${revealState.apiKey}"`
+
+                return (
               <>
                 <DialogHeader>
                   <DialogTitle className="font-bold dither-text">
@@ -630,8 +652,8 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
                 <div className="space-y-4 py-2">
                   <p className="text-sm font-mono-jetbrains">
                     {revealState.reason === 'create'
-                      ? `This is the only time we will display the ingest API key for ${revealState.projectName}. Copy it and store it securely.`
-                      : `The previous API key for ${revealState.projectName} has been revoked. Update your ingest clients with the key below immediately.`}
+                      ? `This is the only time we will display the project API key for ${revealState.projectName}. Copy it and store it securely.`
+                      : `The previous API key for ${revealState.projectName} has been revoked. Update your clients with the key below immediately.`}
                   </p>
                   <div className="space-y-2">
                     <div className="text-xs font-bold text-muted-foreground">// PROJECT ID</div>
@@ -659,8 +681,38 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
                       </button>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-muted-foreground">// ENV</div>
+                    <div className="bg-background border-2 border-foreground dither-border sharp-corners p-3 space-y-3">
+                      <pre className="whitespace-pre-wrap break-all font-mono-jetbrains text-xs">{envSnippet}</pre>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopySnippet('ENV block', envSnippet)}
+                        className="bg-background border border-foreground sharp-corners font-bold"
+                      >
+                        {snippetCopied === 'ENV block' ? '[ COPIED ]' : '[ COPY ENV ]'}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-muted-foreground">// CONNECTION TEST</div>
+                    <div className="bg-background border-2 border-foreground dither-border sharp-corners p-3 space-y-3">
+                      <pre className="whitespace-pre-wrap break-all font-mono-jetbrains text-xs">{curlSnippet}</pre>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopySnippet('cURL test', curlSnippet)}
+                        className="bg-background border border-foreground sharp-corners font-bold"
+                      >
+                        {snippetCopied === 'cURL test' ? '[ COPIED ]' : '[ COPY CURL ]'}
+                      </Button>
+                    </div>
+                  </div>
                   <p className="text-xs text-muted-foreground font-mono-jetbrains">
-                    Safeguard this key. You can rotate it anytime from the Projects table if it is ever exposed.
+                    Send it as <span className="font-bold">Authorization: Bearer</span>. You can rotate it anytime from the Projects table if it is ever exposed.
                   </p>
                 </div>
                 <DialogFooter>
@@ -672,6 +724,8 @@ function ApiKeyDialog({ state, onClose, onConfirmRotate, onCopy, onCopyProjectId
                   </Button>
                 </DialogFooter>
               </>
+                )
+              })()
             )}
           </div>
         </DialogContent>
