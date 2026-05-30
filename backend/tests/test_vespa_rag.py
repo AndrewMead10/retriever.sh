@@ -228,7 +228,7 @@ def seeded_project(session: Session):
         description="Test project for Vespa RAG",
         slug="test-rag-project",
         embedding_provider="remote-http",
-        embedding_model="jinaai/jina-embeddings-v5-omni-small-retrieval",
+        embedding_model="jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
         embedding_model_repo=None,
         embedding_model_file=None,
         embedding_dim=512,

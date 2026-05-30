@@ -6,7 +6,7 @@ Production-ready FastAPI + React implementation that turns the original `vector-
 
 - 🔐 **Self-service accounts** – email/password auth with JWT refresh, automatic account provisioning, and single-user billing ready for future org support.
 - 🧱 **Project isolation** – each project stores its retrieval items in a shared Vespa content cluster filtered by `project_id`, so hybrid retrieval stays tenant-scoped without managing per-project tables.
-- 🔎 **Multimodal retrieval** – Remote Jina omni embeddings and Vespa hybrid ranking power project-scoped search across text, images, audio, video, and PDFs.
+- 🔎 **Multimodal retrieval** – The remote embedding server and Vespa hybrid ranking power project-scoped search across text, images, audio, video, and PDFs.
 - ⚖️ **Plan limits & rate enforcement** – token-bucket QPS limits (1 / 10 / 100 for Tinkering, Building, Scale) and plan-specific project/vector caps enforced entirely in PostgreSQL, no Redis required.
 - 💳 **Polar integration** – plan checkout, self-service portal hand-off, and webhook handlers to activate subscriptions and keep limits in sync.
 - 🌗 **Light/Dark UI** – React + TanStack Router frontend with Tailwind v4 theming, project dashboard, and one-click theme toggle.
@@ -27,7 +27,7 @@ Key additions beyond the base template:
 | --- | --- |
 | `RAG_EMBEDDING_BASE_URL` | Remote OpenAI-compatible embedding service base URL (default `https://embedding-server.amqm.dev`). |
 | `RAG_EMBEDDING_API_KEY` | Bearer token for the remote embedding service. |
-| `RAG_EMBEDDING_MODEL` | Remote embedding model ID (default `jinaai/jina-embeddings-v5-omni-small-retrieval`). |
+| `RAG_EMBEDDING_MODEL` | Remote embedding model ID (default `jinaai/jina-embeddings-v5-text-small-retrieval-mlx`). |
 | `RAG_EMBED_DIM` | Embedding dimension expected by Vespa (default `512`). |
 | `RAG_EMBEDDING_TIMEOUT_SECONDS` | HTTP timeout for remote embedding requests (default `30`). |
 | `POLAR_ACCESS_TOKEN` | Required for live checkout / portal creation (personal access token from Polar). |
@@ -139,6 +139,7 @@ X-Project-Key: proj_...
 
 - Counts toward ingestion QPS and vector totals.
 - Supports `text`, `image_url`, `image_base64`, `audio_url`, `audio_base64`, `video_url`, `video_base64`, `file_url`, and `file_base64` content blocks. File blocks are for PDFs; there is no separate file-upload API.
+- The backend sends text, URLs, and base64 data URIs to the remote embedding server. Multi-block items are embedded as multiple inputs and combined into one stored vector.
 - Enforces vector-cap before inserting into the Vespa corpus and mirrors metadata in PostgreSQL (`project_documents`) so item IDs stay stable.
 
 #### Hybrid query

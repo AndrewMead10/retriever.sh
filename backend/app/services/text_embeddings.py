@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
@@ -44,7 +45,7 @@ class EmbeddingService:
             title_length=len(title),
             block_count=len(content),
         ):
-            document = self._build_embedding_input(title=title, content=content)
+            document = self._build_embedding_inputs(title=title, content=content)
         return self._embed(document, task_type="retrieval.passage")
 
     def embed_query(self, *, content: Sequence[Mapping[str, Any]]) -> Sequence[float]:
@@ -52,73 +53,56 @@ class EmbeddingService:
             "Build query embedding input",
             block_count=len(content),
         ):
-            query_input = self._build_embedding_input(title="", content=content)
+            query_input = self._build_embedding_inputs(title="", content=content)
         return self._embed(query_input, task_type="retrieval.query")
 
-    def _build_embedding_input(
+    def _build_embedding_inputs(
         self, *, title: str, content: Sequence[Mapping[str, Any]]
-    ) -> str | dict[str, Any]:
+    ) -> list[str]:
         text_blocks = [block for block in content if block.get("type") == "text"]
-        if len(text_blocks) == len(content):
-            text = "\n\n".join(str(block.get("text", "")).strip() for block in text_blocks).strip()
-            return f"{title.strip()}\n\n{text}" if title.strip() else text
+        text = "\n\n".join(str(block.get("text", "")).strip() for block in text_blocks).strip()
+        text_input = f"{title.strip()}\n\n{text}" if title.strip() and text else title.strip() or text
 
-        blocks: list[dict[str, str]] = []
-        if title.strip():
-            blocks.append({"type": "text", "value": title.strip()})
+        inputs: list[str] = []
+        if text_input:
+            inputs.append(text_input)
         for block in content:
-            blocks.append(self._to_provider_block(block))
-        return {"content": blocks}
+            if block.get("type") != "text":
+                inputs.append(self._to_provider_input(block))
+        return inputs
 
-    def _to_provider_block(self, block: Mapping[str, Any]) -> dict[str, str]:
+    def _to_provider_input(self, block: Mapping[str, Any]) -> str:
         block_type = block.get("type")
         if block_type == "text":
-            return {"type": "text", "value": str(block.get("text", "")).strip()}
+            return str(block.get("text", "")).strip()
 
         if isinstance(block_type, str) and block_type.endswith("_url"):
-            return {
-                "type": self._provider_media_type(block_type),
-                "format": "url",
-                "value": str(block.get("url", "")).strip(),
-            }
+            return str(block.get("url", "")).strip()
 
         if isinstance(block_type, str) and block_type.endswith("_base64"):
-            provider_block = {
-                "type": self._provider_media_type(block_type),
-                "format": "base64",
-                "value": str(block.get("data", "")).strip(),
-            }
             media_type = block.get("media_type")
-            if media_type:
-                provider_block["media_type"] = str(media_type)
-            return provider_block
+            data = str(block.get("data", "")).strip()
+            if not media_type:
+                raise EmbeddingProviderError(f"Missing media_type for content block type: {block_type}")
+            return f"data:{media_type};base64,{data}"
 
         raise EmbeddingProviderError(f"Unsupported content block type: {block_type}")
 
-    def _provider_media_type(self, block_type: str) -> str:
-        if block_type.startswith("image_"):
-            return "image"
-        if block_type.startswith("audio_"):
-            return "audio"
-        if block_type.startswith("video_"):
-            return "video"
-        if block_type.startswith("file_"):
-            return "file"
-        raise EmbeddingProviderError(f"Unsupported content block type: {block_type}")
-
-    def _embed(self, embedding_input: str | Mapping[str, Any], *, task_type: str) -> Sequence[float]:
+    def _embed(self, embedding_inputs: Sequence[str], *, task_type: str) -> Sequence[float]:
         if not self._config.api_key:
             raise EmbeddingProviderError("RAG_EMBEDDING_API_KEY is not configured")
+        if not embedding_inputs:
+            raise EmbeddingProviderError("Embedding input was empty")
 
         with _logfire_span(
             "Remote embedding request",
-            input_type="text" if isinstance(embedding_input, str) else "multimodal",
+            input_count=len(embedding_inputs),
             target_dim=self._config.embed_dim,
             model_id=self._config.model_id,
             task_type=task_type,
         ):
             payload = {
-                "input": [embedding_input],
+                "input": list(embedding_inputs),
                 "model": self._config.model_id,
                 "encoding_format": "float",
                 "dimensions": self._config.embed_dim,
@@ -146,28 +130,52 @@ class EmbeddingService:
             except ValueError as exc:
                 raise EmbeddingProviderError("Remote embedding response was not valid JSON") from exc
 
-        return self._extract_embedding(data)
+        return self._combine_embeddings(self._extract_embeddings(data))
 
-    def _extract_embedding(self, data: Any) -> Sequence[float]:
+    def _extract_embeddings(self, data: Any) -> list[Sequence[float]]:
         try:
-            embedding = data["data"][0]["embedding"]
-        except (KeyError, IndexError, TypeError) as exc:
+            rows = data["data"]
+        except (KeyError, TypeError) as exc:
             raise EmbeddingProviderError("Remote embedding response did not include an embedding") from exc
 
-        if not isinstance(embedding, list):
-            raise EmbeddingProviderError("Remote embedding response embedding was not a list")
+        if not isinstance(rows, list) or not rows:
+            raise EmbeddingProviderError("Remote embedding response did not include an embedding")
 
-        try:
-            values = [float(value) for value in embedding]
-        except (TypeError, ValueError) as exc:
-            raise EmbeddingProviderError("Remote embedding response contained non-numeric values") from exc
+        embeddings: list[Sequence[float]] = []
+        for row in rows:
+            try:
+                embedding = row["embedding"]
+            except (KeyError, TypeError) as exc:
+                raise EmbeddingProviderError("Remote embedding response did not include an embedding") from exc
 
-        if len(values) != self._config.embed_dim:
-            raise ValueError(
-                f"Unexpected embedding dimension: expected {self._config.embed_dim}, got {len(values)}"
-            )
+            if not isinstance(embedding, list):
+                raise EmbeddingProviderError("Remote embedding response embedding was not a list")
 
-        return values
+            try:
+                values = [float(value) for value in embedding]
+            except (TypeError, ValueError) as exc:
+                raise EmbeddingProviderError("Remote embedding response contained non-numeric values") from exc
+
+            if len(values) != self._config.embed_dim:
+                raise ValueError(
+                    f"Unexpected embedding dimension: expected {self._config.embed_dim}, got {len(values)}"
+                )
+            embeddings.append(values)
+
+        return embeddings
+
+    def _combine_embeddings(self, embeddings: Sequence[Sequence[float]]) -> Sequence[float]:
+        if len(embeddings) == 1:
+            return list(embeddings[0])
+
+        combined = [
+            sum(embedding[index] for embedding in embeddings) / len(embeddings)
+            for index in range(self._config.embed_dim)
+        ]
+        norm = math.sqrt(sum(value * value for value in combined))
+        if norm == 0:
+            return combined
+        return [value / norm for value in combined]
 
 
 def _truncate_detail(detail: str) -> str:

@@ -11,7 +11,7 @@ def _build_service(handler, *, embed_dim: int = 512) -> EmbeddingService:
     config = EmbeddingConfig(
         endpoint="https://embedding.example.test",
         api_key="test-key",
-        model_id="jinaai/jina-embeddings-v5-omni-small-retrieval",
+        model_id="jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
         embed_dim=embed_dim,
         timeout=5.0,
     )
@@ -68,7 +68,15 @@ def test_embed_item_sends_multimodal_content_blocks() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         bodies.append(json.loads(request.read()))
-        return httpx.Response(200, json={"data": [{"embedding": [0.3] * 512}]})
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"embedding": [0.3] * 512},
+                    {"embedding": [0.4] * 512},
+                ]
+            },
+        )
 
     service = _build_service(handler)
 
@@ -81,14 +89,26 @@ def test_embed_item_sends_multimodal_content_blocks() -> None:
     )
 
     assert bodies[0]["input"] == [
-        {
-            "content": [
-                {"type": "text", "value": "Product"},
-                {"type": "text", "value": "Waterproof boot"},
-                {"type": "image", "format": "url", "value": "https://example.com/boot.png"},
-            ]
-        }
+        "Product\n\nWaterproof boot",
+        "https://example.com/boot.png",
     ]
+
+
+def test_embed_item_sends_base64_as_data_uri() -> None:
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.read()))
+        return httpx.Response(200, json={"data": [{"embedding": [0.3] * 512}]})
+
+    service = _build_service(handler)
+
+    service.embed_item(
+        title="Product",
+        content=[{"type": "image_base64", "data": "abc123", "media_type": "image/png"}],
+    )
+
+    assert bodies[0]["input"] == ["Product", "data:image/png;base64,abc123"]
 
 
 def test_embed_query_raises_when_remote_dimension_is_wrong() -> None:
@@ -105,7 +125,7 @@ def test_missing_api_key_raises_provider_error() -> None:
     config = EmbeddingConfig(
         endpoint="https://embedding.example.test",
         api_key="",
-        model_id="jinaai/jina-embeddings-v5-omni-small-retrieval",
+        model_id="jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
         embed_dim=512,
         timeout=5.0,
     )

@@ -62,7 +62,7 @@ class Settings(BaseSettings):
         env="RAG_EMBEDDING_API_KEY",
     )
     rag_embedding_model: str = Field(
-        "jinaai/jina-embeddings-v5-omni-small-retrieval",
+        "jinaai/jina-embeddings-v5-text-small-retrieval-mlx",
         env="RAG_EMBEDDING_MODEL",
     )
     rag_embed_dim: int = Field(512, env="RAG_EMBED_DIM")
