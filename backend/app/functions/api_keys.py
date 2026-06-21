@@ -112,9 +112,6 @@ def authenticate_project_api_key(
     if api_key.expires_at is not None and api_key.expires_at <= datetime.utcnow():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="API key has expired")
 
-    api_key.last_used_at = datetime.utcnow()
-    db.add(api_key)
-    db.flush()
     return api_key
 
 

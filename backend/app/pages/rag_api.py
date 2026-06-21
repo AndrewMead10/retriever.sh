@@ -336,20 +336,22 @@ async def query_project(
     user = project.user
     if user is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
-    plan = _get_plan(project)
+    user_id = user.id
+    top_k = payload.top_k or project.top_k_default
+    vector_k = payload.vector_k or max(project.vector_search_k, top_k)
+    weight_vector = project.hybrid_weight_vector
+    weight_text = project.hybrid_weight_text
 
     consume_rate_limit(
         db,
-        user_id=user.id,
+        user_id=user_id,
         limit_type="query",
         error_detail="Query rate limit exceeded. Upgrade to increase throughput.",
     )
 
     embedder = vector_store_registry.get_embedder(project)
     vector_store = vector_store_registry.get_vector_store(project)
-
-    top_k = payload.top_k or project.top_k_default
-    vector_k = payload.vector_k or max(project.vector_search_k, top_k)
+    db.commit()
 
     with _logfire_span(
         "RAG query pipeline",
@@ -377,8 +379,8 @@ async def query_project(
                     embedding=embedding,
                     vector_k=vector_k,
                     top_k=top_k,
-                    weight_vector=project.hybrid_weight_vector,
-                    weight_text=project.hybrid_weight_text,
+                    weight_vector=weight_vector,
+                    weight_text=weight_text,
                     fts_query=fts_query,
                     date_from=payload.date_from,
                     date_to=payload.date_to,
@@ -388,9 +390,12 @@ async def query_project(
     with _logfire_span(
         "Persist query usage",
         project_id=project_id,
-        user_id=user.id,
+        user_id=user_id,
         result_count=len(rows),
     ):
+        user = db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
         increment_usage(db, user=user, queries=1)
         db.commit()
 
@@ -403,7 +408,7 @@ async def query_project(
             "RAG query completed successfully",
             project_id=project_id,
             result_count=len(results),
-            user_id=user.id,
+            user_id=user_id,
         )
 
     return QueryResponse(results=results)
