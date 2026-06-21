@@ -1,19 +1,25 @@
+import asyncio
+import faulthandler
+import fcntl
+import signal
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from pathlib import Path
-import asyncio
 
+from .config import settings
+from .database import get_db_session
+from .functions.backups import cleanup_expired_tokens, daily_backup_loop
+from .functions.plan_seeding import seed_plans
+from .logging_config import setup_logfire
 from .middleware.cors import setup_cors
 from .middleware.errors import global_exception_handler
-from .pages.auth import login, register, logout, reset, google, utils, verify_email
 from .pages import billing, connect, management_keys, projects, rag_api
-from .functions.backups import daily_backup_loop, cleanup_expired_tokens
-from .functions.plan_seeding import seed_plans
-from .database import get_db_session
-from .config import settings
-from .logging_config import setup_logfire
+from .pages.auth import google, login, logout, register, reset, utils, verify_email
+
+_background_lock_file = None
 
 app = FastAPI(
     title="Retriever.sh",
@@ -111,7 +117,29 @@ async def startup_event():
     with get_db_session() as db:
         seed_plans(db)
 
-    if settings.enable_backups:
-        asyncio.create_task(daily_backup_loop())
-    
-    asyncio.create_task(cleanup_expired_tokens())
+    try:
+        faulthandler.register(signal.SIGUSR1, all_threads=True)
+    except RuntimeError:
+        pass
+
+    if _claim_background_task_lock():
+        if settings.enable_backups:
+            asyncio.create_task(daily_backup_loop())
+
+        asyncio.create_task(cleanup_expired_tokens())
+
+
+def _claim_background_task_lock() -> bool:
+    global _background_lock_file
+
+    lock_path = Path("/tmp/retriever-background-tasks.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = lock_path.open("w")
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock_file.close()
+        return False
+
+    _background_lock_file = lock_file
+    return True

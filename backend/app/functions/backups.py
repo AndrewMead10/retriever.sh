@@ -2,10 +2,12 @@ import asyncio
 import os
 import subprocess
 from datetime import datetime
-from ..database.models import PasswordResetToken
-from ..database import get_db_session
-from ..config import settings
+
 from sqlalchemy.engine import make_url
+
+from ..config import settings
+from ..database import get_db_session
+from ..database.models import PasswordResetToken
 
 
 def local_backup(backups_dir: str = "./data/backups") -> str:
@@ -29,7 +31,7 @@ def local_backup(backups_dir: str = "./data/backups") -> str:
         f"--file={dest}",
     ]
 
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True, env=env, timeout=60 * 15)
     return dest
 
 
@@ -58,9 +60,9 @@ async def daily_backup_loop():
     """Run daily backups"""
     while True:
         try:
-            backup_path = local_backup()
+            backup_path = await asyncio.to_thread(local_backup)
             print(f"Created backup: {backup_path}")
-            upload_to_r2(backup_path)
+            await asyncio.to_thread(upload_to_r2, backup_path)
         except Exception as e:
             print(f"Backup failed: {e}")
         
@@ -71,16 +73,21 @@ async def cleanup_expired_tokens():
     """Clean up expired password reset tokens"""
     while True:
         try:
-            with get_db_session() as db:
-                expired = db.query(PasswordResetToken).filter(
-                    PasswordResetToken.expires_at < datetime.utcnow(),
-                    PasswordResetToken.active == True
-                )
-                count = expired.update({"active": False})
-                db.commit()
-                if count > 0:
-                    print(f"Cleaned up {count} expired tokens")
+            count = await asyncio.to_thread(_cleanup_expired_tokens_once)
+            if count > 0:
+                print(f"Cleaned up {count} expired tokens")
         except Exception as e:
             print(f"Token cleanup failed: {e}")
         
         await asyncio.sleep(3600)  # 1 hour
+
+
+def _cleanup_expired_tokens_once() -> int:
+    with get_db_session() as db:
+        expired = db.query(PasswordResetToken).filter(
+            PasswordResetToken.expires_at < datetime.utcnow(),
+            PasswordResetToken.active == True,
+        )
+        count = expired.update({"active": False})
+        db.commit()
+        return count
