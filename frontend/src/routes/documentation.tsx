@@ -28,13 +28,27 @@ function DocsPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleDownloadSkill = () => {
-    const a = document.createElement('a')
-    a.href = '/retriever-claude-skill.md'
-    a.download = 'retriever-claude-skill.md'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+  const handleDownloadSkill = async () => {
+    const skillUrl = 'https://raw.githubusercontent.com/AndrewMead10/retriever-sh-skill/main/SKILL.md'
+
+    try {
+      const response = await fetch(skillUrl)
+      if (!response.ok) {
+        throw new Error('Failed to download skill')
+      }
+
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = 'retriever-sh-skill.md'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(objectUrl)
+    } catch {
+      window.open(skillUrl, '_blank', 'noopener,noreferrer')
+    }
   }
 
   const copyLinkToSection = (sectionId: string) => {
@@ -308,12 +322,12 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
           </p>
         </div>
 
-        {/* Claude Code Skill Integration - Moved to top */}
+        {/* Agent Skill Integration */}
         <div className="mb-16">
           <div className="bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary dither-border sharp-corners p-8">
-            <h2 className="text-3xl font-black dither-text mb-4">CLAUDE CODE SKILL</h2>
+            <h2 className="text-3xl font-black dither-text mb-4">AGENT SKILL</h2>
             <p className="text-muted-foreground mb-6">
-              Enable Claude Code to automatically integrate retriever.sh into applications it builds for you. When you download this skill, Claude Code will know how to use the API for search functionality in your apps.
+              Enable AI coding agents to automatically integrate retriever.sh into applications they build for you. The skill is installable through skills.sh and teaches agents how to use the Retriever API for search functionality in your apps.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -321,25 +335,25 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                 <h3 className="text-xl font-bold mb-3">Quick Setup</h3>
                 <div className="space-y-3">
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">1. Download the skill file</div>
+                    <div className="text-sm text-muted-foreground mb-1">1. Install with skills.sh</div>
+                    <div className="bg-background border border-foreground p-3 font-mono text-xs break-all">
+                      npx skills add AndrewMead10/retriever-sh-skill
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">2. Or download SKILL.md directly</div>
                     <button
                       onClick={handleDownloadSkill}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-foreground text-background border-2 border-foreground sharp-corners hover:bg-foreground/90 transition-colors"
                     >
                       <Download size={18} />
-                      <span className="font-bold">Download Claude Code Skill</span>
+                      <span className="font-bold">Download Retriever Skill</span>
                     </button>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">2. Add to .claude/skills directory</div>
-                    <div className="bg-background border border-foreground p-3 font-mono text-xs">
-                      mv retriever-claude-skill.md .claude/skills/
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">3. That's it!</div>
+                    <div className="text-sm text-muted-foreground mb-1">3. That's it</div>
                     <div className="text-xs text-muted-foreground">
-                      Claude Code will now automatically know how to integrate retriever.sh when building apps for you
+                      Your agent will now know how to integrate retriever.sh when building apps for you.
                     </div>
                   </div>
                 </div>
@@ -350,11 +364,11 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                 <ul className="space-y-2 text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="text-primary font-bold">•</span>
-                    <span>Teaches Claude Code how to use the retriever.sh API</span>
+                    <span>Teaches agents how to use the retriever.sh API</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary font-bold">•</span>
-                    <span>Enables automatic integration into apps Claude builds</span>
+                    <span>Enables automatic integration into generated apps</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary font-bold">•</span>

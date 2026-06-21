@@ -52,7 +52,7 @@ function HomePage() {
               </h1>
               <div className="h-1 bg-foreground dither-border"></div>
               <p className="text-lg text-muted-foreground font-mono-jetbrains leading-relaxed">
-                Cheap, easy to use search for your apps. Comes with Claude Code integration out of the box so you can seamlessly add search to your project.
+                Cheap, easy to use search for your apps. Comes with an agent skill out of the box so AI coding agents can seamlessly add search to your project.
               </p>
             </div>
 
@@ -71,7 +71,7 @@ function HomePage() {
                 <div className="text-sm">Just get your API key and go.</div>
               </div>
               <div className="bg-card border border-foreground dither-border sharp-corners p-4">
-                <div className="text-xs font-bold mb-2">// CLAUDE SKILL INTEGRATION</div>
+                <div className="text-xs font-bold mb-2">// AGENT SKILL</div>
                 <div className="text-sm">AI ready out of the box.</div>
               </div>
             </div>

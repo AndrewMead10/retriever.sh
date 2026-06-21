@@ -1,0 +1,3 @@
+[submodule "skills/retriever-sh"]
+	path = skills/retriever-sh
+	url = https://github.com/AndrewMead10/retriever-sh-skill.git

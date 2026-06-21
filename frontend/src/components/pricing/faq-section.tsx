@@ -44,11 +44,11 @@ export function FAQSection({
 export const DEFAULT_FAQS: FAQItem[] = [
   {
     question: 'What makes retriever.sh different?',
-    answer: 'Simple, affordable search with no infrastructure setup and easy integration with Claude Code.',
+    answer: 'Simple, affordable search with no infrastructure setup and easy integration through an agent skill.',
   },
   {
-    question: 'How does Claude integration work?',
-    answer: 'We have a Claude Skill file you can add to Claude Code so it automatically knows how to use our API.',
+    question: 'How does agent integration work?',
+    answer: 'We publish a skills.sh-compatible Retriever skill so AI coding agents automatically know how to use our API.',
   },
   {
     question: 'How do I get started?',
