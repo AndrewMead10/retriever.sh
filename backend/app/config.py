@@ -66,7 +66,7 @@ class Settings(BaseSettings):
         env="RAG_EMBEDDING_MODEL",
     )
     rag_embed_dim: int = Field(512, env="RAG_EMBED_DIM")
-    rag_embedding_timeout_seconds: float = Field(30.0, env="RAG_EMBEDDING_TIMEOUT_SECONDS")
+    rag_embedding_timeout_seconds: float = Field(15.0, env="RAG_EMBEDDING_TIMEOUT_SECONDS")
 
     # Vespa
     vespa_endpoint: str = Field("http://localhost:8080", env="VESPA_ENDPOINT")

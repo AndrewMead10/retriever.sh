@@ -217,7 +217,8 @@ async def ingest_item(
             lambda: embedder.embed_item(
                 title=payload.title,
                 content=_dump_content_blocks(payload.content),
-            )
+            ),
+            cancellable=True,
         )
     except EmbeddingProviderError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
@@ -349,7 +350,8 @@ async def query_project(
         with _logfire_span("Generate query embedding", project_id=project_id):
             try:
                 embedding = await anyio.to_thread.run_sync(
-                    lambda: embedder.embed_query(content=_dump_content_blocks(payload.input))
+                    lambda: embedder.embed_query(content=_dump_content_blocks(payload.input)),
+                    cancellable=True,
                 )
             except EmbeddingProviderError as exc:
                 raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
