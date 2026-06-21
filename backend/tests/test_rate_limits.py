@@ -81,6 +81,7 @@ def test_consume_rate_limit_blocks_when_exhausted(session: Session, seeded_user)
     # Immediate additional request should raise 429 due to no refill time.
     with pytest.raises(RateLimitExceeded):
         consume_rate_limit(session, user_id=user.id, limit_type="query")
+    assert not session.in_transaction()
 
 
 def test_consume_rate_limit_creates_missing_bucket(session: Session, seeded_user):

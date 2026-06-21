@@ -198,6 +198,8 @@ async def ingest_item(
     user = project.user
     if user is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User missing for project")
+    project_id_value = project.id
+    vector_store_path = project.vector_store_path
 
     ensure_vector_capacity(db, user=user, plan=plan, additional_vectors=1, project=project)
     consume_rate_limit(
@@ -206,22 +208,9 @@ async def ingest_item(
         limit_type="ingest",
         error_detail="Ingestion rate limit exceeded. Upgrade to increase throughput.",
     )
-
     embedder = vector_store_registry.get_embedder(project)
     vector_store = vector_store_registry.get_vector_store(project)
-
-    document = ProjectDocument(
-        project_id=project.id,
-        title=payload.title,
-        content=_content_text_projection(payload.title, payload.content),
-        metadata_=_metadata_for_item(payload),
-        vespa_document_id=f"pending_{secrets.token_hex(8)}",
-    )
-    db.add(document)
-    db.flush()
-
-    document.vespa_document_id = f"{project.vector_store_path}_{document.id}"
-    db.add(document)
+    db.commit()
 
     try:
         embedding = await anyio.to_thread.run_sync(
@@ -233,6 +222,19 @@ async def ingest_item(
         )
     except EmbeddingProviderError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    document = ProjectDocument(
+        project_id=project_id_value,
+        title=payload.title,
+        content=_content_text_projection(payload.title, payload.content),
+        metadata_=_metadata_for_item(payload),
+        vespa_document_id=f"pending_{secrets.token_hex(8)}",
+    )
+    db.add(document)
+    db.flush()
+
+    document.vespa_document_id = f"{vector_store_path}_{document.id}"
+    db.add(document)
 
     await anyio.to_thread.run_sync(
         lambda: vector_store.upsert_document(document=document, embedding=embedding)
@@ -348,7 +350,6 @@ async def query_project(
         limit_type="query",
         error_detail="Query rate limit exceeded. Upgrade to increase throughput.",
     )
-
     embedder = vector_store_registry.get_embedder(project)
     vector_store = vector_store_registry.get_vector_store(project)
     db.commit()
