@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from contextlib import nullcontext
-from datetime import datetime
 import json
 import secrets
+from contextlib import nullcontext
+from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 import anyio
@@ -37,6 +37,7 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 
 CONTENT_BLOCKS_METADATA_KEY = "__retriever_content"
 EXTERNAL_ID_METADATA_KEY = "__retriever_external_id"
+ITEM_DATE_METADATA_KEY = "__retriever_date"
 
 
 def _logfire_span(message_template: str, **attributes: Any):
@@ -76,6 +77,7 @@ def _item_to_response(document: ProjectDocument) -> dict:
         "content": _content_blocks_from_metadata(metadata, fallback=document.content),
         "metadata": _public_metadata(metadata),
         "external_id": metadata.get(EXTERNAL_ID_METADATA_KEY),
+        "date": metadata.get(ITEM_DATE_METADATA_KEY),
         "created_at": document.created_at,
     }
 
@@ -98,7 +100,7 @@ def _public_metadata(metadata: Mapping[str, Any]) -> dict:
     return {
         key: value
         for key, value in metadata.items()
-        if key not in {CONTENT_BLOCKS_METADATA_KEY, EXTERNAL_ID_METADATA_KEY}
+        if key not in {CONTENT_BLOCKS_METADATA_KEY, EXTERNAL_ID_METADATA_KEY, ITEM_DATE_METADATA_KEY}
     }
 
 
@@ -114,11 +116,19 @@ def _metadata_for_item(payload: ItemIn) -> dict:
     metadata[CONTENT_BLOCKS_METADATA_KEY] = _dump_content_blocks(payload.content)
     if payload.external_id is not None:
         metadata[EXTERNAL_ID_METADATA_KEY] = payload.external_id
+    if payload.date is not None:
+        metadata[ITEM_DATE_METADATA_KEY] = _datetime_to_utc_iso(payload.date)
     return metadata
 
 
 def _dump_content_blocks(blocks: list[ContentBlock]) -> list[dict]:
     return [block.model_dump() for block in blocks]
+
+
+def _datetime_to_utc_iso(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
 
 
 def _content_text_projection(title: str, blocks: list[ContentBlock]) -> str:
@@ -161,6 +171,7 @@ def _vespa_hit_to_response(hit: Mapping[str, Any]) -> dict:
         "content": _content_blocks_from_metadata(metadata, fallback=str(hit.get("content", ""))),
         "metadata": _public_metadata(metadata),
         "external_id": metadata.get(EXTERNAL_ID_METADATA_KEY),
+        "date": metadata.get(ITEM_DATE_METADATA_KEY),
         "created_at": hit.get("created_at"),
         "score": hit.get("_vespa_relevance"),
     }
@@ -369,6 +380,8 @@ async def query_project(
                     weight_vector=project.hybrid_weight_vector,
                     weight_text=project.hybrid_weight_text,
                     fts_query=fts_query,
+                    date_from=payload.date_from,
+                    date_to=payload.date_to,
                 )
             )
 

@@ -128,6 +128,7 @@ item = {
         "source": "launch-drive",
         "category": "marketing"
     },
+    "date": "2026-05-30T00:00:00Z",
     "external_id": "launch-brief-2026"
 }
 result = ingest_item("your-project-uuid", "retr_proj_...your_key...", item)
@@ -162,6 +163,7 @@ const item = {
     source: 'launch-drive',
     category: 'marketing'
   },
+  date: '2026-05-30T00:00:00Z',
   external_id: 'launch-brief-2026'
 };
 const result = await ingestItem('your-project-uuid', 'retr_proj_...your_key...', item);
@@ -180,6 +182,7 @@ curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/items \\
       "source": "launch-drive",
       "category": "marketing"
     },
+    "date": "2026-05-30T00:00:00Z",
     "external_id": "launch-brief-2026"
   }'`,
     },
@@ -194,7 +197,7 @@ def query_project(project_id: str, api_key: str, input_blocks: list[dict], top_k
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         },
-        json={"input": input_blocks, "top_k": top_k},
+        json={"input": input_blocks, "top_k": top_k, "date_from": "2026-05-01T00:00:00Z"},
     )
     response.raise_for_status()
     return response.json()
@@ -234,7 +237,9 @@ const results = await queryProject('your-project-uuid', 'retr_proj_...your_key..
     { type: 'image_url', url: 'https://example.com/reference.png' }
   ],
   top_k: 5,
-  vector_k: 40
+  vector_k: 40,
+  date_from: '2026-05-01T00:00:00Z',
+  date_to: '2026-05-31T23:59:59Z'
 });
 results.results.forEach(result => {
   console.log(\`\${result.title}: \${result.score}\`);
@@ -249,7 +254,9 @@ curl -X POST https://retriever.sh/api/rag/projects/your-project-uuid/query \\
       { "type": "image_url", "url": "https://example.com/reference.png" }
     ],
     "top_k": 5,
-    "vector_k": 40
+    "vector_k": 40,
+    "date_from": "2026-05-01T00:00:00Z",
+    "date_to": "2026-05-31T23:59:59Z"
   }'`,
     },
     delete: {
@@ -436,6 +443,10 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                     <div className="font-mono mb-1">body</div>
                     <div className="text-muted-foreground text-xs">ItemIn (required)</div>
                   </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">date</div>
+                    <div className="text-muted-foreground text-xs">ISO timestamp (optional)</div>
+                  </div>
                 </div>
               </div>
 
@@ -475,6 +486,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
     "category": "marketing"
   },
   "external_id": "launch-brief-2026",
+  "date": "2026-05-30T00:00:00Z",
   "created_at": "2026-05-30T18:42:11.214Z"
 }`}
                   </SyntaxHighlighter>
@@ -528,6 +540,14 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
                     <div className="font-mono mb-1">vector_k</div>
                     <div className="text-muted-foreground text-xs">integer (optional)</div>
                   </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">date_from</div>
+                    <div className="text-muted-foreground text-xs">inclusive ISO timestamp (optional)</div>
+                  </div>
+                  <div className="bg-background border border-foreground p-3">
+                    <div className="font-mono mb-1">date_to</div>
+                    <div className="text-muted-foreground text-xs">inclusive ISO timestamp (optional)</div>
+                  </div>
                 </div>
               </div>
 
@@ -569,6 +589,7 @@ curl -X DELETE https://retriever.sh/api/rag/projects/your-project-uuid/items/456
         "category": "marketing"
       },
       "external_id": "launch-brief-2026",
+      "date": "2026-05-30T00:00:00Z",
       "created_at": "2026-05-30T18:42:11.214Z",
       "score": 0.87
     }

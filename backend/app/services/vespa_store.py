@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import httpx
@@ -12,6 +13,7 @@ from ..database.models import ProjectDocument
 logger = logging.getLogger(__name__)
 
 CONTENT_BLOCKS_METADATA_KEY = "__retriever_content"
+ITEM_DATE_METADATA_KEY = "__retriever_date"
 
 
 class VespaClientError(RuntimeError):
@@ -49,10 +51,18 @@ class VespaClient:
         weight_vector: float,
         weight_text: float,
         fts_query: Optional[str],
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
         # Only include text search if fts_query is non-empty
         include_fts = bool(fts_query and fts_query.strip())
-        yql = self._build_yql(project_id=project_id, vector_k=vector_k, include_text=include_fts)
+        yql = self._build_yql(
+            project_id=project_id,
+            vector_k=vector_k,
+            include_text=include_fts,
+            date_from=date_from,
+            date_to=date_to,
+        )
         payload: Dict[str, Any] = {
             "yql": yql,
             "hits": top_k,
@@ -94,9 +104,21 @@ class VespaClient:
     def _document_url(self, document_id: str) -> str:
         return f"{self._base_url}/document/v1/{self._namespace}/{self._document_type}/docid/{document_id}"
 
-    def _build_yql(self, *, project_id: str, vector_k: int, include_text: bool) -> str:
+    def _build_yql(
+        self,
+        *,
+        project_id: str,
+        vector_k: int,
+        include_text: bool,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> str:
         project_id_literal = self._yql_string_literal(project_id)
-        base_filter = f"project_id contains {project_id_literal} AND active = true"
+        base_filter = self._build_base_filter(
+            project_id_literal=project_id_literal,
+            date_from=date_from,
+            date_to=date_to,
+        )
         vector_clause = f"{{targetHits:{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
         if include_text:
             # Use OR operator for hybrid search: vector OR text
@@ -108,13 +130,38 @@ class VespaClient:
 
     def _build_vector_only_yql(self, *, project_id: str, vector_k: int) -> str:
         project_id_literal = self._yql_string_literal(project_id)
-        base_filter = f"project_id contains {project_id_literal} AND active = true"
+        base_filter = self._build_base_filter(
+            project_id_literal=project_id_literal,
+            date_from=None,
+            date_to=None,
+        )
         vector_clause = f"{{targetHits:{max(1, vector_k)}}}nearestNeighbor(embedding, query_embedding)"
         return f"select * from sources * where {base_filter} AND ({vector_clause})"
+
+    def _build_base_filter(
+        self,
+        *,
+        project_id_literal: str,
+        date_from: Optional[datetime],
+        date_to: Optional[datetime],
+    ) -> str:
+        filters = [f"project_id contains {project_id_literal}", "active = true"]
+        if date_from is not None or date_to is not None:
+            filters.append("item_date > 0")
+        if date_from is not None:
+            filters.append(f"item_date >= {self._datetime_to_epoch_millis(date_from)}")
+        if date_to is not None:
+            filters.append(f"item_date <= {self._datetime_to_epoch_millis(date_to)}")
+        return " AND ".join(filters)
 
     def _yql_string_literal(self, value: str) -> str:
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
+
+    def _datetime_to_epoch_millis(self, value: datetime) -> int:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return int(value.astimezone(timezone.utc).timestamp() * 1000)
 
     def _raise_for_status(self, response: httpx.Response, context: str) -> None:
         if response.status_code >= 400:
@@ -160,7 +207,8 @@ class VespaVectorStore:
 
     def upsert_document(self, *, document: ProjectDocument, embedding: Sequence[float]) -> None:
         embedding_vector = self._normalise_source_embedding(embedding)
-        content_blocks = document.metadata_.get(CONTENT_BLOCKS_METADATA_KEY, []) if document.metadata_ else []
+        metadata = document.metadata_ or {}
+        content_blocks = metadata.get(CONTENT_BLOCKS_METADATA_KEY, [])
         fields = {
             "project_id": self._project_id,
             "document_id": document.id,
@@ -168,7 +216,8 @@ class VespaVectorStore:
             "content": document.content,
             "content_blocks": json.dumps(content_blocks),
             "primary_modality": self._primary_modality(content_blocks),
-            "metadata": json.dumps(document.metadata_ or {}),
+            "metadata": json.dumps(metadata),
+            "item_date": self._item_date_timestamp(metadata),
             "created_at": (document.created_at or document.updated_at).isoformat(),
             "active": document.active,
             "embedding": {"values": embedding_vector},
@@ -187,6 +236,8 @@ class VespaVectorStore:
         weight_vector: float,
         weight_text: float,
         fts_query: Optional[str],
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
         embedding_vector = self._normalise_source_embedding(embedding)
         return self._client.search(
@@ -197,6 +248,8 @@ class VespaVectorStore:
             weight_vector=weight_vector,
             weight_text=weight_text,
             fts_query=fts_query,
+            date_from=date_from,
+            date_to=date_to,
         )
 
     def _normalise_source_embedding(self, embedding: Sequence[float]) -> List[float]:
@@ -221,3 +274,16 @@ class VespaVectorStore:
             if block_type.startswith("file_"):
                 return "file"
         return "unknown"
+
+    def _item_date_timestamp(self, metadata: Mapping[str, Any]) -> int:
+        value = metadata.get(ITEM_DATE_METADATA_KEY)
+        if not isinstance(value, str) or not value.strip():
+            return 0
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            logger.warning("Ignoring invalid item date value for Vespa indexing: %r", value)
+            return 0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return int(parsed.astimezone(timezone.utc).timestamp() * 1000)

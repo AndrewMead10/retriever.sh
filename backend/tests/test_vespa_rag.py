@@ -62,6 +62,7 @@ class _StubVectorStore:
             "title": document.title,
             "content": document.content,
             "metadata": document.metadata_,
+            "date": document.metadata_.get("__retriever_date") if document.metadata_ else None,
             "created_at": document.created_at,
             "active": document.active,
             "_vespa_relevance": 1.0,
@@ -76,8 +77,26 @@ class _StubVectorStore:
         weight_vector: float,
         weight_text: float,
         fts_query: str | None,
+        date_from=None,
+        date_to=None,
     ):
         rows = [row for row in self.documents.values() if row["active"]]
+        if date_from is not None or date_to is not None:
+            def _timestamp(value):
+                if value is None:
+                    return None
+                parsed = value if isinstance(value, datetime) else datetime.fromisoformat(value)
+                return parsed.timestamp()
+
+            from_ts = _timestamp(date_from)
+            to_ts = _timestamp(date_to)
+            rows = [
+                row
+                for row in rows
+                if row["date"] is not None
+                and (from_ts is None or _timestamp(row["date"]) >= from_ts)
+                and (to_ts is None or _timestamp(row["date"]) <= to_ts)
+            ]
         return rows[:top_k]
 
     def delete_document(self, document: ProjectDocument):
@@ -281,6 +300,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     test_documents = [
         {
             "title": "Introduction to Machine Learning",
+            "date": "2026-01-10T00:00:00Z",
             "content": [
                 {
                     "type": "text",
@@ -291,6 +311,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
         },
         {
             "title": "Deep Learning Fundamentals",
+            "date": "2026-02-10T00:00:00Z",
             "content": [
                 {
                     "type": "text",
@@ -330,6 +351,7 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
         # The response can have either 'text' or 'content' due to aliasing
         assert result["content"] == doc["content"]
         assert result["metadata"] == doc["metadata"]
+        assert result.get("date") == doc.get("date")
         assert "id" in result
         assert "created_at" in result
 
@@ -383,6 +405,21 @@ def test_vespa_rag_workflow(test_client: TestClient, seeded_project):
     search_results2 = response2.json()
     assert len(search_results2["results"]) > 0
     print(f"✓ Second search returned {len(search_results2['results'])} results")
+
+    date_filtered_query = {
+        "input": [{"type": "text", "text": "learning"}],
+        "top_k": 5,
+        "date_from": "2026-02-01T00:00:00Z",
+        "date_to": "2026-02-28T23:59:59Z",
+    }
+    response3 = test_client.post(
+        f"/api/rag/projects/{project.id}/query",
+        json=date_filtered_query,
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    assert response3.status_code == 200
+    filtered_results = response3.json()["results"]
+    assert [result["title"] for result in filtered_results] == ["Deep Learning Fundamentals"]
 
     # Step 3: Delete all uploaded documents
     print("\n--- Step 3: Deleting documents ---")

@@ -25,6 +25,9 @@ schema rag_document {
     field metadata type string {
       indexing: attribute | summary
     }
+    field item_date type long {
+      indexing: attribute | summary
+    }
     field created_at type string {
       indexing: attribute | summary
     }

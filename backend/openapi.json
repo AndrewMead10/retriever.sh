@@ -1608,6 +1608,19 @@
               }
             ],
             "title": "External Id"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date",
+            "description": "Application-level item date used for date range filtering. Separate from created_at."
           }
         },
         "type": "object",
@@ -1691,6 +1704,18 @@
               }
             ],
             "title": "External Id"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
           },
           "created_at": {
             "type": "string",
@@ -2565,6 +2590,32 @@
               }
             ],
             "title": "Vector K"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date From",
+            "description": "Inclusive lower bound for item date filtering."
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date To",
+            "description": "Inclusive upper bound for item date filtering."
           }
         },
         "type": "object",
@@ -2663,6 +2714,18 @@
               }
             ],
             "title": "External Id"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
           },
           "created_at": {
             "type": "string",
@@ -2897,6 +2960,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",

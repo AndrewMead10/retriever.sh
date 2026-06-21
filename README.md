@@ -135,12 +135,14 @@ Authorization: Bearer retr_proj_...
     "source": "launch-drive",
     "category": "marketing"
   },
+  "date": "2026-05-30T00:00:00Z",
   "external_id": "launch-brief-2026"
 }
 ```
 
 - Counts toward ingestion QPS and vector totals.
 - Supports `text`, `image_url`, `image_base64`, `audio_url`, `audio_base64`, `video_url`, `video_base64`, `file_url`, and `file_base64` content blocks. File blocks are for PDFs; there is no separate file-upload API.
+- Optional `date` stores an application-level item timestamp for range search. It is separate from `created_at`, which is when Retriever ingested the item.
 - The backend sends text, URLs, and base64 data URIs to the remote embedding server. Multi-block items are embedded as multiple inputs and combined into one stored vector.
 - Enforces vector-cap before inserting into the Vespa corpus and mirrors metadata in PostgreSQL (`project_documents`) so item IDs stay stable.
 
@@ -156,11 +158,13 @@ Authorization: Bearer retr_proj_...
       "text": "find the product launch brief"
     }
   ],
-  "top_k": 5
+  "top_k": 5,
+  "date_from": "2026-05-01T00:00:00Z",
+  "date_to": "2026-05-31T23:59:59Z"
 }
 ```
 
-Returns the weighted hybrid ranking powered by Vespa's `rag-hybrid` profile. Query inputs can use the same text/image/audio/video/PDF content block shape as ingest. Requests consume the plan-specific query QPS bucket.
+Returns the weighted hybrid ranking powered by Vespa's `rag-hybrid` profile. Query inputs can use the same text/image/audio/video/PDF content block shape as ingest. Optional `date_from` and `date_to` filter against the item `date` field, not `created_at`. Requests consume the plan-specific query QPS bucket.
 
 #### Delete item
 

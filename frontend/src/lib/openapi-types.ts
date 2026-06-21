@@ -674,6 +674,11 @@ export interface components {
             } | null;
             /** External Id */
             external_id?: string | null;
+            /**
+             * Date
+             * @description Application-level item date used for date range filtering. Separate from created_at.
+             */
+            date?: string | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -689,6 +694,8 @@ export interface components {
             };
             /** External Id */
             external_id?: string | null;
+            /** Date */
+            date?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -967,6 +974,16 @@ export interface components {
             top_k?: number | null;
             /** Vector K */
             vector_k?: number | null;
+            /**
+             * Date From
+             * @description Inclusive lower bound for item date filtering.
+             */
+            date_from?: string | null;
+            /**
+             * Date To
+             * @description Inclusive upper bound for item date filtering.
+             */
+            date_to?: string | null;
         };
         /** QueryResponse */
         QueryResponse: {
@@ -987,6 +1004,8 @@ export interface components {
             };
             /** External Id */
             external_id?: string | null;
+            /** Date */
+            date?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1073,6 +1092,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /** VerifyEmailRequest */
         VerifyEmailRequest: {

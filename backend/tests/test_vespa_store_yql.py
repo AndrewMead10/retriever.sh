@@ -45,6 +45,28 @@ def test_build_yql_without_text_wraps_nearest_neighbor_clause():
     assert "AND ({targetHits:20}nearestNeighbor(embedding, query_embedding))" in yql
 
 
+def test_build_yql_adds_item_date_range_filters():
+    client = VespaClient(
+        endpoint="http://localhost:8080",
+        namespace="rag",
+        document_type="rag_document",
+        rank_profile="rag-hybrid",
+        timeout=5.0,
+    )
+
+    yql = client._build_yql(
+        project_id="project-1",
+        vector_k=20,
+        include_text=True,
+        date_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        date_to=datetime(2026, 1, 31, 23, 59, 59, tzinfo=timezone.utc),
+    )
+
+    assert "item_date > 0" in yql
+    assert "item_date >= 1767225600000" in yql
+    assert "item_date <= 1769903999000" in yql
+
+
 def test_search_sends_float_query_embedding(monkeypatch):
     monkeypatch.setattr(settings, "vespa_embedding_dim", 8)
 
@@ -124,7 +146,10 @@ def test_upsert_sends_float_embedding_field(monkeypatch):
         id=42,
         title="t",
         content="c",
-        metadata_={"__retriever_content": [{"type": "image_url", "url": "https://example.com/a.png"}]},
+        metadata_={
+            "__retriever_content": [{"type": "image_url", "url": "https://example.com/a.png"}],
+            "__retriever_date": "2026-01-15T12:30:00+00:00",
+        },
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         active=True,
@@ -138,6 +163,7 @@ def test_upsert_sends_float_embedding_field(monkeypatch):
     assert client.fields["embedding"] == {"values": [0.1, 0.2, -0.3, 0.4, 1.0, -2.0, 3.0, -4.0]}
     assert client.fields["content_blocks"] == '[{"type": "image_url", "url": "https://example.com/a.png"}]'
     assert client.fields["primary_modality"] == "image"
+    assert client.fields["item_date"] == 1768480200000
 
 
 def test_execute_search_sorts_rows_by_relevance_descending():

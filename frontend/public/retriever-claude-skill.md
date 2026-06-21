@@ -75,9 +75,12 @@ Content-Type: application/json
     "source": "launch-drive",
     "category": "marketing"
   },
+  "date": "2026-05-30T00:00:00Z",
   "external_id": "launch-brief-2026"
 }
 ```
+
+`date` is an optional application-level timestamp for range search. It is separate from Retriever's `created_at` ingest timestamp.
 
 ### 2. QUERY - Hybrid Multimodal Search
 
@@ -103,9 +106,13 @@ Content-Type: application/json
     }
   ],
   "top_k": 5,
-  "vector_k": 40
+  "vector_k": 40,
+  "date_from": "2026-05-01T00:00:00Z",
+  "date_to": "2026-05-31T23:59:59Z"
 }
 ```
+
+`date_from` and `date_to` are optional inclusive filters against the item `date` field.
 
 ### 3. DELETE - Remove an Item
 
@@ -131,6 +138,7 @@ results = requests.post(
     json={
         "input": [{"type": "text", "text": "shipping policy"}],
         "top_k": 5,
+        "date_from": "2026-01-01T00:00:00Z",
     },
     timeout=30,
 )

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TextContentBlock(BaseModel):
@@ -77,6 +77,10 @@ class ItemIn(BaseModel):
     content: List[ContentBlock] = Field(..., min_length=1)
     metadata: Optional[Dict[str, Any]] = None
     external_id: Optional[str] = Field(None, min_length=1)
+    date: Optional[datetime] = Field(
+        None,
+        description="Application-level item date used for date range filtering. Separate from created_at.",
+    )
 
 
 class ItemOut(BaseModel):
@@ -85,6 +89,7 @@ class ItemOut(BaseModel):
     content: List[ContentBlock]
     metadata: Dict[str, Any]
     external_id: Optional[str] = None
+    date: Optional[datetime] = None
     created_at: datetime
 
     class Config:
@@ -95,6 +100,24 @@ class QueryRequest(BaseModel):
     input: List[ContentBlock] = Field(..., min_length=1)
     top_k: Optional[int] = Field(None, ge=1, le=50)
     vector_k: Optional[int] = Field(None, ge=1, le=200)
+    date_from: Optional[datetime] = Field(
+        None,
+        description="Inclusive lower bound for item date filtering.",
+    )
+    date_to: Optional[datetime] = Field(
+        None,
+        description="Inclusive upper bound for item date filtering.",
+    )
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> "QueryRequest":
+        if (
+            self.date_from is not None
+            and self.date_to is not None
+            and _datetime_to_utc(self.date_from) > _datetime_to_utc(self.date_to)
+        ):
+            raise ValueError("date_from must be before or equal to date_to")
+        return self
 
 
 class QueryResult(BaseModel):
@@ -103,6 +126,7 @@ class QueryResult(BaseModel):
     content: List[ContentBlock]
     metadata: Dict[str, Any]
     external_id: Optional[str] = None
+    date: Optional[datetime] = None
     created_at: datetime
     score: Optional[float] = None
 
@@ -112,3 +136,9 @@ class QueryResult(BaseModel):
 
 class QueryResponse(BaseModel):
     results: List[QueryResult]
+
+
+def _datetime_to_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
