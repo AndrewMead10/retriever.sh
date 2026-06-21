@@ -34,13 +34,9 @@ setup_cors(app)
 
 app.add_exception_handler(Exception, global_exception_handler)
 
-# Instrument FastAPI with LogFire
-if settings.logfire_enabled:
-    import logfire
-    logfire.instrument_fastapi(
-        app,
-        excluded_urls=["/livez", "/readyz"]
-    )
+# FastAPI auto-instrumentation can fail inside OpenTelemetry route detection for
+# mounted routers/static fallbacks and wedge workers. Keep explicit spans and
+# SQLAlchemy instrumentation, but do not wrap the whole ASGI app.
 
 # Mount all API routes under a common /api prefix to avoid
 # collisions with SPA client-side routes like /auth/* when
